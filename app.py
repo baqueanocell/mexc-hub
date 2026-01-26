@@ -9,9 +9,9 @@ import random
 from streamlit_autorefresh import st_autorefresh
 st_autorefresh(interval=10000, key="datarefresh")
 
-st.set_page_config(page_title="IA ELITE TERMINAL", layout="wide")
+st.set_page_config(page_title="IA TERMINAL ELITE V3", layout="wide")
 
-# --- CSS SEGURO Y MEJORADO ---
+# --- CSS PRO ---
 st.markdown("""
     <style>
     .stApp { background-color: #000000 !important; }
@@ -21,75 +21,78 @@ st.markdown("""
     .bar-text { font-family: monospace; font-size: 10px; line-height: 1.1; }
     .win-bar-box { background: #222; border-radius: 10px; overflow: hidden; height: 12px; display: flex; margin: 5px 0; }
     .ia-log { background: #001a00; border-left: 3px solid #00ff00; padding: 5px 10px; font-family: monospace; font-size: 11px; color: #00ff00; margin-bottom: 10px; }
+    .trigger-tag { font-size: 8px; color: #ffca28; font-weight: bold; margin-left: 5px; border: 1px solid #ffca28; padding: 0px 3px; border-radius: 2px; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- MOTOR IA ---
+# --- MOTOR IA AVANZADO ---
 exchange = ccxt.mexc()
 tz_arg = pytz.timezone('America/Argentina/Buenos_Aires')
 
 if 'signals' not in st.session_state: st.session_state.signals = {}
 if 'hist_cerrado' not in st.session_state: st.session_state.hist_cerrado = []
-if 'ia_thoughts' not in st.session_state: st.session_state.ia_thoughts = "Iniciando sistema de aprendizaje..."
+if 'ia_thoughts' not in st.session_state: st.session_state.ia_thoughts = "Sincronizando con libro de órdenes MEXC..."
 
 def draw_bar(value, color="#1f6feb"):
     filled = int(value / 10)
     bar = "■" * filled + "□" * (10 - filled)
-    return f'<span style="color:{color};">{bar}</span> {value}%'
+    return f'<span style="color:{color};">{bar}</span> {int(value)}%'
 
 def get_market():
     try:
         tickers = exchange.fetch_tickers()
         df = pd.DataFrame.from_dict(tickers, orient='index')
-        df['score'] = (df['percentage'].fillna(0) * 2) + (df['quoteVolume'] / 1000000)
-        top = df[df['symbol'].str.contains('/USDT')].sort_values('score', ascending=False)
+        df['vol_m'] = df['quoteVolume'].fillna(0) / 1000000
+        df['chg'] = df['percentage'].fillna(0)
         
+        # Selección inteligente
+        top = df[df['symbol'].str.contains('/USDT')].sort_values('vol_m', ascending=False)
         selected = ['VEREM/USDT']
         for s in top.index:
             if s != 'VEREM/USDT' and len(selected) < 4: selected.append(s)
             
         data = []
         now = datetime.now(tz_arg)
-        
-        # Simular escaneo si no hay cambios
-        if random.random() > 0.7:
-            st.session_state.ia_thoughts = "Escaneando MEXC: Buscando monedas con mayor probabilidad de acierto..."
 
         for sym in selected:
             if sym in tickers:
                 t, s_name = tickers[sym], sym.replace('/USDT','')
                 p = t['last']
                 
+                # Definir por qué se activa la moneda
+                if "VEREM" in s_name: trigger = "IMPULSO"
+                elif t['quoteVolume'] > 50000000: trigger = "BALLENAS"
+                elif abs(t['percentage'] or 0) > 5: trigger = "PATRÓN FIBO"
+                else: trigger = "NOTICIAS"
+
+                # Lógica de señales y Trailing Stop
                 if s_name not in st.session_state.signals or now > st.session_state.signals[s_name]['exp']:
-                    # LÓGICA DE APRENDIZAJE: Si hubo error previo, cambiar estrategia
-                    last_pnl = 1 # default positivo
-                    if st.session_state.hist_cerrado:
-                        last_pnl = float(st.session_state.hist_cerrado[0]['PNL'].replace('%',''))
-
-                    if last_pnl < 0:
-                        strat = "FIBONACCI REVERSO"
-                        st.session_state.ia_thoughts = f"⚠️ Error detectado en ciclo previo. Aplicando {strat} para mitigar riesgo."
-                    elif "VEREM" in s_name:
-                        strat = "AGRESIVO"
-                        st.session_state.ia_thoughts = f"🔥 Alta volatilidad detectada en {s_name}. Activando modo AGRESIVO."
-                    else:
-                        strat = "SMART MONEY"
-                        st.session_state.ia_thoughts = f"✅ Patrón confirmado. Cambiando a {strat} para optimizar ganancias."
-
+                    strat = "AGRESIVO" if "VEREM" in s_name else "SMART MONEY"
                     st.session_state.signals[s_name] = {
-                        'e': p, 't': p*1.035, 's': p*0.982, 'strat': strat,
-                        'exp': now+timedelta(minutes=20)
+                        'e': p, 't': p*1.04, 's': p*0.98, 'strat': strat,
+                        'trig': trigger, 'exp': now+timedelta(minutes=20)
                     }
                 
                 sig = st.session_state.signals[s_name]
+                
+                # GESTIÓN DINÁMICA: Si sube, subimos el Stop
+                pnl_actual = ((p - sig['e']) / sig['e']) * 100
+                if pnl_actual > 1.5:
+                    sig['s'] = max(sig['s'], sig['e'] * 1.005) # Asegura ganancia (Breakeven+)
+                    st.session_state.ia_thoughts = f"🛡️ Protegiendo ganancias en {s_name}. Stop Loss subido a zona segura."
+
+                # Métricas reales basadas en datos de mercado
+                soc = min(max(50 + (t['percentage'] or 0) * 2, 30), 95)
+                ball = min(max(t['quoteVolume'] / 1000000, 20), 98)
+                imp = min(max(abs(t['percentage'] or 0) * 10, 10), 99)
+
                 data.append({
                     "n": s_name, "p": p, "e": sig['e'], "t": sig['t'], "s": sig['s'],
-                    "strat": sig['strat'], "pnl": ((p - sig['e']) / sig['e']) * 100,
-                    "soc": 80, "ball": 75, "imp": 90
+                    "strat": sig['strat'], "pnl": pnl_actual, "trig": sig['trig'],
+                    "soc": soc, "ball": ball, "imp": imp
                 })
         return data
     except Exception as e:
-        st.session_state.ia_thoughts = f"Reconectando con MEXC... {str(e)[:30]}"
         return []
 
 # --- RENDER PANTALLA ---
@@ -100,15 +103,14 @@ total_ops = len(ops) if len(ops) > 0 else 1
 p_green = (ganadas / total_ops) * 100
 p_red = 100 - p_green if len(ops) > 0 else 0
 
-# 1. HEADER Y BARRA GLOBAL
 st.markdown(f"""
     <div style="text-align: center;">
-        <span style="font-size: 18px; font-weight: bold; color: white;">🛰️ TERMINAL IA ELITE | {datetime.now(tz_arg).strftime('%H:%M:%S')}</span>
+        <span style="font-size: 18px; font-weight: bold; color: white;">🛰️ TERMINAL IA ELITE V3</span>
         <div class="win-bar-box">
             <div style="background: #3fb950; width: {p_green}%;"></div>
             <div style="background: #f85149; width: {p_red}%;"></div>
         </div>
-        <div style="display: flex; justify-content: space-between; font-size: 10px; font-weight: bold; color: white; margin-bottom:5px;">
+        <div style="display: flex; justify-content: space-between; font-size: 10px; color: white;">
             <span>GANANCIAS: {p_green:.1f}%</span>
             <span>PÉRDIDAS: {p_red:.1f}%</span>
         </div>
@@ -116,7 +118,6 @@ st.markdown(f"""
     <div class="ia-log">🧠 PENSAMIENTO IA: {st.session_state.ia_thoughts}</div>
     """, unsafe_allow_html=True)
 
-# 2. TOP 4 MONEDAS
 cols = st.columns(4)
 for i, m in enumerate(data):
     with cols[i]:
@@ -124,17 +125,17 @@ for i, m in enumerate(data):
         st.markdown(f"""
         <div class="card-tv">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <b style="font-size: 18px; color:white;">{m['n']}</b>
-                <span style="background:#238636; font-size:9px; padding:2px 5px; border-radius:3px;">{m['strat']}</span>
+                <b style="font-size: 16px; color:white;">{m['n']}<span class="trigger-tag">{m['trig']}</span></b>
+                <span style="background:#238636; font-size:8px; padding:2px 4px; border-radius:3px;">{m['strat']}</span>
             </div>
             <div style="display: flex; justify-content: space-between; margin-top:5px;">
-                <span style="color:#58a6ff; font-weight:bold;">${m['p']}</span>
+                <span style="color:#58a6ff; font-weight:bold; font-size:14px;">${m['p']}</span>
                 <span style="color:{pnl_c}; font-weight:bold;">{m['pnl']:.2f}%</span>
             </div>
             <div class="exec-grid">
-                <div><span style="font-size:7px; color:#888;">E</span><br><b style="font-size:10px;">{m['e']:.2f}</b></div>
-                <div><span style="font-size:7px; color:#888;">T</span><br><b style="font-size:10px; color:#3fb950;">{m['t']:.2f}</b></div>
-                <div><span style="font-size:7px; color:#888;">S</span><br><b style="font-size:10px; color:#f85149;">{m['s']:.2f}</b></div>
+                <div><span style="font-size:7px; color:#888;">ENTRADA</span><br><b style="font-size:10px;">{m['e']:.2f}</b></div>
+                <div><span style="font-size:7px; color:#888;">TARGET</span><br><b style="font-size:10px; color:#3fb950;">{m['t']:.2f}</b></div>
+                <div><span style="font-size:7px; color:#888;">STOP</span><br><b style="font-size:10px; color:#f85149;">{m['s']:.2f}</b></div>
             </div>
             <div class="bar-text">
                 REDES: {draw_bar(m['soc'], "#58a6ff")}<br>
@@ -144,9 +145,6 @@ for i, m in enumerate(data):
         </div>
         """, unsafe_allow_html=True)
 
-# 3. HISTORIAL
 st.markdown("<b style='color:#8b949e; font-size:12px;'>📜 ÚLTIMAS 10 OPERACIONES</b>", unsafe_allow_html=True)
-if ops:
-    st.table(pd.DataFrame(ops).head(10))
-else:
-    st.write("Esperando cierre de operaciones...")
+if ops: st.table(pd.DataFrame(ops).head(10))
+else: st.info("Sincronizando historial...")
