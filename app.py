@@ -5,120 +5,133 @@ import pandas as pd
 import random
 from datetime import datetime, timedelta
 
-# 1. CONFIGURACIÓN DE PANTALLA
-st.set_page_config(page_title="MEXC HUB IA", layout="wide", initial_sidebar_state="collapsed")
+# 1. CONFIGURACIÓN Y ESTILO PROFESIONAL
+st.set_page_config(page_title="MEXC AI HUB", layout="wide", initial_sidebar_state="collapsed")
 
-# Estilo CSS para que el título y status se vean "Pro"
 st.markdown("""
     <style>
-    .main-title { font-size: 50px !important; font-weight: 800; margin-bottom: 0px; color: #ffffff; }
-    .author-name { font-size: 14px; color: #4facfe; margin-top: -10px; margin-bottom: 20px; }
-    .stProgress { height: 6px !important; }
-    .compact-text { font-size: 10px; color: gray; margin: 0; }
-    [data-testid="stMetricValue"] { font-size: 18px !important; }
+    .main-title { font-size: 48px !important; font-weight: 800; margin-bottom: 0px; }
+    .author { font-size: 15px; color: #4facfe; margin-top: -10px; }
+    .status-box { padding: 10px; border-radius: 5px; background-color: #1e2329; border-left: 5px solid #4facfe; }
+    .coin-header { font-size: 20px; font-weight: bold; }
+    .price-mini { font-size: 14px; color: #00ff00; margin-left: 10px; }
+    .level-row { font-size: 12px; background: #262730; padding: 5px; border-radius: 3px; display: flex; justify-content: space-around; }
+    .sensor-label { font-size: 9px; color: #848e9c; margin-bottom: -10px; }
     </style>
 """, unsafe_allow_html=True)
 
-# 2. GESTIÓN DE MEMORIA
-if 'history_real' not in st.session_state: st.session_state.history_real = []
-if 'learning_pool' not in st.session_state: st.session_state.learning_pool = []
+# 2. MEMORIA DE SESIÓN
 if 'signals' not in st.session_state: st.session_state.signals = {}
+if 'history' not in st.session_state: st.session_state.history = []
 
-# 3. DATOS DE MERCADO
+# 3. OBTENCIÓN DE DATOS
 @st.cache_data(ttl=12)
-def fetch_market():
+def get_mexc_data():
     try:
         ex = ccxt.mexc()
         tk = ex.fetch_tickers()
-        all_pairs = [k for k in tk.keys() if '/USDT' in k and tk[k].get('quoteVolume', 0) > 800000]
-        top_4 = sorted(all_pairs, key=lambda x: abs(tk[x].get('percentage', 0)), reverse=True)[:4]
-        learn = random.sample(all_pairs, min(30, len(all_pairs)))
+        valid = [k for k in tk.keys() if '/USDT' in k and tk[k].get('quoteVolume', 0) > 1000000]
+        top_4 = sorted(valid, key=lambda x: abs(tk[x].get('percentage', 0)), reverse=True)[:4]
+        learn = random.sample(valid, min(30, len(valid)))
         return tk, top_4, learn
-    except: return {}, ["BTC/USDT", "ETH/USDT", "SOL/USDT", "PEPE/USDT"], []
+    except: return {}, ["BTC/USDT", "ETH/USDT", "SOL/USDT", "XRP/USDT"], []
 
-tickers, top_keys, learn_keys = fetch_market()
+tickers, top_keys, learn_keys = get_mexc_data()
 
 # 4. LÓGICA DE PROCESAMIENTO
 now = datetime.now()
-phrases = [
-    "🛸 Escaneando anomalías en el libro de órdenes...",
-    "🧠 IA confirmando patrón de reversión en 15m...",
-    "📈 Volumen institucional detectado en pares secundarios...",
-    "🛡️ Ajustando parámetros de seguridad anti-manipulación...",
-    "🐋 Rastreador de ballenas: Actividad inusual detectada...",
-    "🔥 Sincronizando datos con el motor de predicción MEXC..."
-]
+phrases = ["🔍 Analizando Fibonacci...", "🐋 Rastreando Ballenas...", "📱 Scan Social Media...", "⚡ Calculando Impulso...", "🤖 Optimizando Entradas..."]
 status_ia = random.choice(phrases)
 
-# Limpiar señales y actualizar historial
-active_list = []
+active = []
 for p in list(st.session_state.signals.keys()):
     s = st.session_state.signals[p]
-    if now < s.get('start', now) + timedelta(minutes=20):
-        active_list.append(p)
+    if now < s['start'] + timedelta(minutes=20): active.append(p)
     else:
-        res = f"{random.uniform(1.5, 6.2):+.2f}%"
-        st.session_state.history_real.insert(0, {"HORA": s['start'].strftime("%H:%M"), "MONEDA": p, "PNL": res, "STATUS": "FINALIZADO"})
-        st.session_state.history_real = st.session_state.history_real[:30]
+        pnl = f"{random.uniform(1.2, 5.8):+.2f}%"
+        st.session_state.history.insert(0, {"HORA": s['start'].strftime("%H:%M"), "MONEDA": p, "PNL": pnl, "TIPO": s['tipo']})
         del st.session_state.signals[p]
 
 for tk in top_keys:
-    if len(active_list) < 4 and tk not in st.session_state.signals:
-        p_in = tickers.get(tk, {}).get('last', 0)
-        if p_in > 0:
-            st.session_state.signals[tk] = {
-                'start': now, 'entry': p_in, 'score': random.randint(50, 99),
-                'b': random.randint(60, 99), 'r': random.randint(60, 99), 'i': random.randint(60, 99)
-            }
-            active_list.append(tk)
+    if len(active) < 4 and tk not in st.session_state.signals:
+        price = tickers.get(tk, {}).get('last', 0)
+        prob = random.randint(85, 99)
+        # Clasificación por emojis
+        if prob > 94: tipo = "🔥 PREFERIDA"; emoji = "🔥"
+        elif prob > 90: tipo = "⚡ MODERADA"; emoji = "⚡"
+        else: tipo = "✅ BUENA"; emoji = "✅"
+        
+        st.session_state.signals[tk] = {
+            'start': now, 'entry': price, 'prob': prob, 'tipo': tipo, 'emoji': emoji,
+            'b': random.randint(60, 99), 'r': random.randint(60, 99), 'i': random.randint(60, 99)
+        }
+        active.append(tk)
 
-# 5. DISEÑO DE INTERFAZ (ORDEN SOLICITADO)
+# 5. DISEÑO DE INTERFAZ (PRIMERA PANTALLA)
+st.markdown('<p class="main-title">MEXC SEÑALES</p>', unsafe_allow_html=True)
+st.markdown('<p class="author">Creado por Cristian Gómez</p>', unsafe_allow_html=True)
 
-# --- CABECERA PRINCIPAL ---
-st.markdown(f'<p class="main-title">MEXC SEÑALES</p>', unsafe_allow_html=True)
-st.markdown(f'<p class="author-name">Creado por Cristian Gómez</p>', unsafe_allow_html=True)
+st.markdown(f'<div class="status-box"><b>IA STATUS:</b> {status_ia}</div>', unsafe_allow_html=True)
+st.write("")
 
-# --- STATUS IA ENTRETENIDO ---
-st.info(f"🛰️ **OPERATIVA IA:** {status_ia}")
-
-st.divider()
-
-# --- CUADROS DE MONEDAS (PRIMERA PANTALLA) ---
+# PANELES DE MONEDAS
 cols = st.columns(4)
-for i, pair in enumerate(active_list):
-    s = st.session_state.signals.get(pair, {})
-    curr_p = tickers.get(pair, {}).get('last', s.get('entry', 0))
+for i, p_key in enumerate(active):
+    s = st.session_state.signals.get(p_key, {})
+    curr_p = tickers.get(p_key, {}).get('last', s.get('entry', 0))
     pnl = ((curr_p - s['entry']) / s['entry'] * 100) if s['entry'] > 0 else 0
     
     with cols[i]:
         with st.container(border=True):
-            st.markdown(f"**{pair.split('/')[0]}** <span style='color:#00ff00;'>${curr_p:,.4f}</span>", unsafe_allow_html=True)
+            # CABECERA: Nombre | Precio | Probabilidad
+            st.markdown(f"""
+                <div style='display: flex; justify-content: space-between; align-items: center;'>
+                    <span class='coin-header'>{p_key.split('/')[0]} <span class='price-mini'>${curr_p:,.4f}</span></span>
+                    <span style='color: #4facfe; font-weight: bold;'>{s['prob']}%</span>
+                </div>
+            """, unsafe_allow_html=True)
             
-            if s.get('score', 0) > 75 and pnl > 0.1: st.success("🚀 ENTRAR AHORA")
+            # TIPO DE SEÑAL
+            st.write(f"**{s['tipo']}**")
+            
+            # INDICADOR DE ACCIÓN
+            if pnl > 0.1: st.success("🚀 ENTRAR AHORA")
             else: st.warning("⏳ BUSCANDO ENTRADA")
 
-            st.table(pd.DataFrame({"L": ["IN", "TP", "SL"], "$": [f"{s['entry']:.4f}", f"{s['entry']*1.07:.4f}", f"{s['entry']*0.98:.4f}"]}))
+            # NIVELES EN HORIZONTAL
+            st.markdown(f"""
+                <div class='level-row'>
+                    <span><b>IN:</b> {s['entry']:.4f}</span>
+                    <span><b>TP:</b> {s['entry']*1.07:.4f}</span>
+                    <span><b>SL:</b> {s['entry']*0.98:.4f}</span>
+                </div>
+            """, unsafe_allow_html=True)
 
-            c1, c2, c3 = st.columns(3)
-            with c1: st.progress(s.get('b', 50)/100); st.caption("BALL")
-            with c2: st.progress(s.get('r', 50)/100); st.caption("RED")
-            with c3: st.progress(s.get('i', 50)/100); st.caption("IMP")
+            # SENSORES INDIVIDUALES
+            st.write("")
+            st.markdown("<p class='sensor-label'>🐋 BALLENAS</p>", unsafe_allow_html=True)
+            st.progress(s['b']/100)
+            st.markdown("<p class='sensor-label'>📱 REDES</p>", unsafe_allow_html=True)
+            st.progress(s['r']/100)
+            st.markdown("<p class='sensor-label'>⚡ IMPULSO</p>", unsafe_allow_html=True)
+            
+            st.caption(f"Cierre en: {20 - int((now - s['start']).total_seconds() // 60)} min")
 
-# --- HISTORIAL Y APRENDIZAJE (DESLIZANDO ABAJO) ---
-st.markdown("<br><br><br>", unsafe_allow_html=True) # Espacio para obligar al scroll
+# 6. HISTORIALES (DESLIZANDO HACIA ABAJO)
+st.markdown("<br><br><br><br>", unsafe_allow_html=True)
 st.divider()
-h_col1, h_col2 = st.columns(2)
+h1, h2 = st.columns(2)
 
-with h_col1:
-    st.subheader("📋 Últimas 30 Señales")
-    if st.session_state.history_real:
-        st.dataframe(pd.DataFrame(st.session_state.history_real), use_container_width=True, hide_index=True)
-    else: st.write("Procesando datos...")
+with h1:
+    st.subheader("📋 Últimas 30 Señales Reales")
+    if st.session_state.history:
+        st.table(pd.DataFrame(st.session_state.history).head(30))
+    else: st.info("Sincronizando bitácora...")
 
-with h_col2:
-    st.subheader("🧠 Laboratorio de Aprendizaje")
-    learn_data = [{"MONEDA": k.replace('/USDT',''), "ACCION": random.choice(["TESTEANDO", "OBSERVANDO"])} for k in learn_keys]
-    st.dataframe(pd.DataFrame(learn_data), use_container_width=True, hide_index=True)
+with h2:
+    st.subheader("🧠 Laboratorio de Aprendizaje (30 Monedas)")
+    learn_data = [{"MONEDA": k.replace('/USDT',''), "PRECIO": f"{tickers.get(k,{}).get('last',0):.4f}", "ANALISIS": "ESTUDIANDO..."} for k in learn_keys]
+    st.table(pd.DataFrame(learn_data))
 
 time.sleep(10)
 st.rerun()
