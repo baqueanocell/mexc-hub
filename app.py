@@ -2,33 +2,40 @@ import streamlit as st
 import pandas as pd
 import ccxt
 from datetime import datetime, timedelta
+import pytz
 
 # Refresco cada 10 segundos
 from streamlit_autorefresh import st_autorefresh
 st_autorefresh(interval=10000, key="datarefresh")
 
-st.set_page_config(page_title="MEXC Inteligencia IA", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="MEXC Inteligencia IA", layout="wide")
 
-# CSS para diseño profesional de 2 columnas y estados de trading
+# --- CSS PROFESIONAL (BARRAS MICRO + NÚMEROS GRANDES) ---
 st.markdown("""
     <style>
     .main { background-color: #0b0e14; }
     [data-testid="column"] { width: 49% !important; flex: 1 1 49% !important; min-width: 49% !important; }
-    div[data-testid="stHorizontalBlock"] { display: flex !important; flex-direction: row !important; flex-wrap: wrap !important; }
-    .card-pro { background-color: #161b22; border: 1px solid #30363d; border-radius: 4px; padding: 5px; margin-bottom: 2px; }
-    .label-bar { font-size: 8px !important; color: #8b949e; margin-bottom: -15px; text-transform: uppercase; }
-    .price-val { color: #58a6ff; font-family: monospace; font-size: 11px !important; }
-    .status-active { color: #00ffcc; font-weight: bold; font-size: 10px; }
-    .pnl-pos { color: #3fb950; font-weight: bold; }
-    .pnl-neg { color: #f85149; font-weight: bold; }
+    div[data-testid="stHorizontalBlock"] { display: flex !important; flex-direction: row !important; }
+    
+    /* Barras casi invisibles (Micro) */
+    .stProgress > div > div > div > div { height: 2px !important; }
+    
+    /* Precios y PNL Grandes */
+    .price-big { color: #58a6ff; font-size: 16px !important; font-weight: 800; font-family: 'Courier New', monospace; }
+    .pnl-big { font-size: 14px !important; font-weight: bold; }
+    .label-micro { font-size: 7px !important; color: #8b949e; margin-bottom: -18px; }
+    .card-pro { background-color: #161b22; border-left: 3px solid #00ffcc; padding: 6px; margin-bottom: 4px; border-radius: 2px; }
     </style>
     """, unsafe_allow_html=True)
 
+# --- CONFIGURACIÓN DE IA Y EXCHANGE ---
 exchange = ccxt.mexc()
+tz_arg = pytz.timezone('America/Argentina/Buenos_Aires')
 
-# --- LÓGICA DE PERSISTENCIA DE SEÑALES ---
-if 'signals' not in st.session_state:
-    st.session_state.signals = {}
+# Inicializar memoria de la IA
+if 'signals' not in st.session_state: st.session_state.signals = {}
+if 'historial_real' not in st.session_state: st.session_state.historial_real = []
+if 'ia_mode' not in st.session_state: st.session_state.ia_mode = "Agresivo"
 
 def get_data():
     try:
@@ -39,7 +46,7 @@ def get_data():
         if 'VEREM/USDT' not in symbols: symbols.insert(0, 'VEREM/USDT')
         
         current_data = []
-        now = datetime.now()
+        now = datetime.now(tz_arg)
 
         for sym in symbols[:10]:
             if sym in tickers:
@@ -48,45 +55,56 @@ def get_data():
                 ch = t['percentage'] or 0
                 s_name = sym.replace('/USDT', '')
 
-                # Si no existe señal para esta moneda o ya expiró (20 min), creamos una nueva
+                # Lógica de Re-Cálculo de Señal (Cada 20 min)
                 if s_name not in st.session_state.signals or now > st.session_state.signals[s_name]['expires']:
+                    # APRENDIZAJE: Si hay muchas pérdidas, ensanchar el Stop Loss
+                    risk_adj = 0.98 if st.session_state.ia_mode == "Defensivo" else 0.99
+                    
+                    # Cerrar señal anterior y guardar en historial
+                    if s_name in st.session_state.signals:
+                        old_sig = st.session_state.signals[s_name]
+                        final_pnl = ((p - old_sig['entry']) / old_sig['entry']) * 100
+                        st.session_state.historial_real.insert(0, {
+                            "Hora": now.strftime("%H:%M"), "Moneda": s_name, "PNL": f"{final_pnl:.2f}%"
+                        })
+                        # Limitar a las últimas 10
+                        st.session_state.historial_real = st.session_state.historial_real[:10]
+
                     st.session_state.signals[s_name] = {
-                        'entry': p,
-                        'tp': p * 1.02,
-                        'sl': p * 0.99,
-                        'expires': now + timedelta(minutes=20),
-                        'active': False
+                        'entry': p, 'tp': p * 1.02, 'sl': p * risk_adj,
+                        'expires': now + timedelta(minutes=20), 'active': True
                     }
                 
                 sig = st.session_state.signals[s_name]
-                
-                # Lógica de activación y PnL
                 pnl = ((p - sig['entry']) / sig['entry']) * 100
-                if abs(p - sig['entry']) / sig['entry'] < 0.001: # Si el precio toca la entrada
-                    sig['active'] = True
 
                 current_data.append({
-                    "n": s_name, "p": p, "ch": ch,
-                    "entry": sig['entry'], "tp": sig['tp'], "sl": sig['sl'],
-                    "active": sig['active'], "pnl": pnl,
-                    "soc": min(max(75 + (ch * 1.5), 20), 98),
-                    "ball": 70, "imp": min(max(ch + 50, 10), 95)
+                    "n": s_name, "p": p, "entry": sig['entry'], "tp": sig['tp'], "sl": sig['sl'],
+                    "pnl": pnl, "soc": min(max(80 + (ch * 1.5), 30), 98),
+                    "ball": 75 if ch > 0 else 40, "imp": min(max(ch + 50, 10), 95)
                 })
+        
+        # IA ANALIZANDO RESULTADOS
+        losses = sum(1 for x in st.session_state.historial_real if "-" in x['PNL'])
+        st.session_state.ia_mode = "Defensivo" if losses > 3 else "Experto"
+        
         return current_data
     except: return []
 
 # --- UI ---
-st.markdown("### 🤖 MEXC INTELIGENCIA IA")
+st.markdown(f"### 🤖 MEXC INTELIGENCIA IA <span style='font-size:12px; color:#00ffcc;'>MODO: {st.session_state.ia_mode}</span>", unsafe_allow_html=True)
 data = get_data()
 
-# RECOMENDACIÓN DESTACADA
+# RECOMENDACIÓN TOP
 if data:
-    best = max(data, key=lambda x: x['imp'])
-    status_msg = f"<span class='pnl-pos'>GANANCIA: {best['pnl']:.2f}%</span>" if best['pnl'] >= 0 else f"<span class='pnl-neg'>PÉRDIDA: {best['pnl']:.2f}%</span>"
+    best = max(data, key=lambda x: x['imp'] + x['soc'])
     st.markdown(f"""
-    <div style="background: #161b22; padding: 10px; border-radius: 8px; border: 1px solid #00ffcc;">
-        <b style="color:white;">🎯 TOP SEÑAL: {best['n']}</b> | ENTRADA: {best['entry']:.4f}<br>
-        {status_msg if best['active'] else '⏳ ESPERANDO ENTRADA...'}
+    <div style="background: #161b22; padding: 10px; border-radius: 4px; border: 1px solid #58a6ff;">
+        <span style="color:#8b949e; font-size:10px;">TOP SEÑAL ({datetime.now(tz_arg).strftime('%H:%M:%S')} ARG)</span><br>
+        <b style="font-size:20px; color:white;">{best['n']}</b> <span class="price-big">${best['p']}</span>
+        <div style="color:{'#3fb950' if best['pnl'] >= 0 else '#f85149'}; font-size:16px; font-weight:bold;">
+            PNL ACTUAL: {best['pnl']:.2f}%
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -96,19 +114,29 @@ st.write("---")
 cols = st.columns(2)
 for idx, m in enumerate(data):
     with cols[idx % 2]:
-        pnl_class = "pnl-pos" if m['pnl'] >= 0 else "pnl-neg"
+        pnl_color = "#3fb950" if m['pnl'] >= 0 else "#f85149"
         st.markdown(f"""
         <div class="card-pro">
-            <b style="font-size:11px;">{m['n']}</b> <span class="price-val">${m['p']}</span>
-            <div style="font-size:9px; color:#00ffcc;">
+            <span style="font-size:14px; font-weight:bold;">{m['n']}</span> 
+            <span class="price-big" style="float:right;">${m['p']}</span><br>
+            <span style="font-size:11px; color:{pnl_color};">PNL: {m['pnl']:.2f}%</span>
+            <div style="font-size:8px; color:#8b949e; margin-top:4px;">
                 E: {m['entry']:.3f} | T: {m['tp']:.3f} | S: {m['sl']:.3f}
             </div>
-            {f"<div class='{pnl_class}' style='font-size:10px;'>PNL: {m['pnl']:.2f}%</div>" if m['active'] else ""}
-            <div class="label-bar">IA SOCIAL</div>
+            <div class="label-micro">IA SCORE</div>
         </div>
         """, unsafe_allow_html=True)
         st.progress(m['soc']/100)
-        st.markdown('<div class="label-bar">BALLENAS</div>', unsafe_allow_html=True)
+        st.markdown('<div class="label-micro">BALLENAS</div>', unsafe_allow_html=True)
         st.progress(m['ball']/100)
-        st.markdown('<div class="label-bar">IMPULSO</div>', unsafe_allow_html=True)
+        st.markdown('<div class="label-micro">IMPULSO</div>', unsafe_allow_html=True)
         st.progress(m['imp']/100)
+
+st.write("---")
+
+# --- HISTORIAL DE APRENDIZAJE ---
+st.markdown("### 📜 ÚLTIMAS 10 OPERACIONES (MEMORIA IA)")
+if st.session_state.historial_real:
+    st.table(pd.DataFrame(st.session_state.historial_real))
+else:
+    st.info("Analizando mercado... Esperando cierre del primer ciclo de 20 min.")
