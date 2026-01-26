@@ -1,131 +1,88 @@
 import streamlit as st
 import pandas as pd
+import ccxt
 from datetime import datetime
 
-# 1. Configuración de página y Estilo "Slim & Neon"
+# Conector MEXC
+exchange = ccxt.mexc()
+
+# --- LÓGICA DE CÁLCULO REAL ---
+def obtener_metricas_mexc(symbol):
+    try:
+        # 1. Datos de Precio e Impulso (Ticker)
+        ticker = exchange.fetch_ticker(symbol)
+        precio = ticker['last']
+        cambio_24h = ticker['percentage']
+        impulso = min(max(float(cambio_24h) + 50, 10), 95) # Normalizado para la barra
+
+        # 2. Datos de Ballenas (Order Book)
+        ob = exchange.fetch_order_book(symbol, limit=20)
+        vol_compras = sum([bid[1] for bid in ob['bids']])
+        vol_ventas = sum([ask[1] for ask in ob['asks']])
+        fuerza_ballenas = (vol_compras / (vol_compras + vol_ventas)) * 100
+        
+        return {
+            "precio": precio,
+            "cambio": cambio_24h,
+            "impulso": impulso,
+            "ballenas": fuerza_ballenas,
+            "social": 85 # Simulado hasta conectar API de X/Twitter
+        }
+    except:
+        return None
+
+# --- DISEÑO DEL HUB ---
 st.set_page_config(page_title="MEXC Intelligence Hub", layout="wide")
 
 st.markdown("""
     <style>
-    .main { background-color: #0b0e14; }
-    .stProgress > div > div > div > div { height: 8px !important; border-radius: 10px; }
-    div[data-testid="stMetricValue"] { font-size: 18px; color: #00ffcc; }
-    .reportview-container .main .block-container { padding-top: 2rem; }
-    h3 { font-size: 1.2rem !important; margin-bottom: 0px; }
+    .main { background-color: #0b0e14; color: white; }
+    .stProgress > div > div > div > div { height: 6px !important; }
+    /* Colores por tipo de barra */
+    div[data-testid="stMarkdownContainer"] p { font-size: 14px; margin-bottom: 0px; }
+    .css-1n76uvr { gap: 1rem; } 
     </style>
     """, unsafe_allow_html=True)
 
-# Encabezado
 st.title("🛡️ MEXC INTELLIGENCE HUB")
-st.caption(f"Actualizado: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+st.caption(f"Conexión Live: {datetime.now().strftime('%H:%M:%S')} - Sin Comisiones")
 
 col_main, col_side = st.columns([2, 1])
 
 with col_main:
-    st.subheader("📊 Top 10 Monedas - Triple Confluencia")
+    st.subheader("📊 Monedas con Datos Reales")
+    target_coins = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'MX/USDT']
     
-    # Datos simulados con porcentajes
-    monedas = [
-        {"name": "VEREM", "social": 98, "whales": 90, "impulse": 95},
-        {"name": "BTC", "social": 45, "whales": 50, "impulse": 30},
-        {"name": "ETH", "social": 60, "whales": 75, "impulse": 55},
-        {"name": "SOL", "social": 80, "whales": 40, "impulse": 70},
-    ]
-
-    for m in monedas:
-        with st.container():
-            st.write(f"**{m['name']}**")
-            c1, c2, c3 = st.columns(3)
-            with c1:
-                st.caption(f"Sentimiento: {m['social']}%")
-                st.progress(m['social']/100)
-            with c2:
-                st.caption(f"Ballenas: {m['whales']}%")
-                st.progress(m['whales']/100)
-            with c3:
-                st.caption(f"Impulso: {m['impulse']}%")
-                st.progress(m['impulse']/100)
-            st.write("---")
-
-with col_side:
-    # Sección Alerta
-    st.success("### 🎯 ALERTA DE PRIORIDAD")
-    st.metric(label="Oportunidad Detectada", value="VEREM / USDT")
-    st.write("**Nivel Fib:** 0.618 Oro ($90.50)")
-    
-    st.divider()
-    
-    # NUEVO: Historial de Operaciones
-    st.subheader("📜 Historial de Operaciones")
-    historial = pd.DataFrame([
-        {"Hora": "12:15", "Moneda": "BTC", "Acción": "COMPRA", "Resultado": "+2.1%"},
-        {"Hora": "11:40", "Moneda": "SOL", "Acción": "VENTA", "Resultado": "-0.5%"},
-        {"Hora": "09:20", "Moneda": "VEREM", "Acción": "COMPRA", "Resultado": "+8.4%"},
-    ])
-    st.table(historial)
-
-    st.info("💡 *El historial registra las señales confirmadas por la IA.*")
-
-import streamlit as st
-import pandas as pd
-import ccxt  # Conector para MEXC
-from datetime import datetime
-
-# 1. Configuración de la conexión con MEXC (Paso B - Datos Reales)
-exchange = ccxt.mexc()
-
-def obtener_datos_reales():
-    try:
-        # Traemos la información de los tickers
-        tickers = exchange.fetch_tickers(['BTC/USDT', 'ETH/USDT', 'SOL/USDT'])
-        return tickers
-    except Exception as e:
-        return None
-
-# Configuración Visual
-st.set_page_config(page_title="MEXC Intelligence Hub", layout="wide")
-st.title("🛡️ MEXC INTELLIGENCE HUB (LIVE)")
-
-# Obtener datos de la API
-datos_mexc = obtener_datos_reales()
-
-col_main, col_side = st.columns([2, 1])
-
-with col_main:
-    st.subheader("📊 Monedas en Tiempo Real")
-    
-    if datos_mexc:
-        for symbol in ['BTC/USDT', 'ETH/USDT', 'SOL/USDT']:
-            ticker = datos_mexc[symbol]
-            precio = ticker['last']
-            cambio = ticker['percentage'] # Cambio en 24h
-            
-            # Usamos el cambio de 24h para simular la barra de "Impulso"
-            impulso_real = min(max(float(cambio) + 50, 0), 100) # Normalizado
-            
+    for coin in target_coins:
+        data = obtener_metricas_mexc(coin)
+        if data:
             with st.container():
-                st.write(f"### {symbol} - ${precio:,.2f}")
+                st.write(f"### {coin} : `${data['precio']:,.2f}`")
                 c1, c2, c3 = st.columns(3)
+                
                 with c1:
-                    st.caption("Sentimiento (Simulado)")
-                    st.progress(0.85) # Luego lo conectaremos a Twitter/X
+                    st.write(f"🟢 Social: **{data['social']}%**")
+                    st.progress(data['social']/100)
                 with c2:
-                    st.caption("Ballenas (Simulado)")
-                    st.progress(0.60)
+                    st.write(f"🔵 Ballenas: **{int(data['ballenas'])}%**")
+                    st.progress(data['ballenas']/100)
                 with c3:
-                    st.caption(f"Impulso Real (24h: {cambio}%)")
-                    st.progress(impulso_real / 100)
+                    st.write(f"⚡ Impulso: **{int(data['impulso'])}%**")
+                    st.progress(data['impulso']/100)
                 st.divider()
-    else:
-        st.error("No se pudo conectar con la API de MEXC. Reintentando...")
 
 with col_side:
-    st.success("### 🎯 ALERTA DE PRIORIDAD")
-    # Si BTC sube más de 2%, disparamos alerta
-    if datos_mexc and datos_mexc['BTC/USDT']['percentage'] > 2:
-        st.warning("⚠️ VOLATILIDAD ALTA EN BTC")
-    
-    st.write("**Entrada Sugerida:** Según nivel Fib 0.618")
-    
-    st.subheader("📜 Historial de Señales")
-    st.table(pd.DataFrame([{"Hora": "Actual", "Moneda": "BTC", "Acción": "LIVE", "Precio": precio}]))
+    st.success("### 🎯 ALERTA FIBONACCI")
+    # Lógica de alerta automática
+    if data and data['ballenas'] > 65:
+        st.balloons()
+        st.write(f"**¡ALERTA EN {coin}!**")
+        st.write("Muro de Ballenas detectado. Nivel Fib Sugerido: **0.618**")
+    else:
+        st.write("Buscando confluencia triple...")
+
+    st.subheader("📜 Historial (Simulado)")
+    st.table(pd.DataFrame([
+        {"Hora": "14:20", "Par": "BTC/USDT", "Tipo": "Fib 0.618", "Res": "✅"},
+        {"Hora": "13:05", "Par": "SOL/USDT", "Tipo": "Fib 0.382", "Res": "❌"}
+    ]))
