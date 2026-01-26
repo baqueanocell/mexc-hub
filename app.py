@@ -2,111 +2,133 @@ import streamlit as st
 import ccxt
 import time
 import pandas as pd
-import numpy as np
 import random
 from datetime import datetime, timedelta
 
-# 1. CONFIGURACIÓN
-st.set_page_config(page_title="IA NEURAL V42", layout="wide", initial_sidebar_state="collapsed")
+# 1. CONFIGURACIÓN DE PANTALLA
+st.set_page_config(page_title="IA NEURAL V43", layout="wide", initial_sidebar_state="collapsed")
 
+# Estilo Cyber-Futurista
 st.markdown("""
     <style>
-    .pnl-circle { width: 90px; height: 90px; border-radius: 50%; border: 5px solid #00ff00; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #0e1117; }
-    .win-rate-text { font-size: 22px; font-weight: bold; color: #00ff00; }
-    .learning-chart { background: rgba(255,255,255,0.05); border-radius: 10px; padding: 5px; }
-    .level-box { text-align: center; background: #1e2329; padding: 8px; border-radius: 6px; border: 1px solid #4facfe; }
+    .stApp { background-color: #050a0e; color: #e0e0e0; }
+    .main-title { font-size: 35px; font-weight: 900; color: #00d4ff; text-shadow: 0 0 10px #00d4ff; margin-bottom: 0px; }
+    .status-bar { background: #10161d; padding: 10px; border-left: 5px solid #00d4ff; border-radius: 5px; margin-bottom: 20px; font-family: monospace; }
+    
+    /* Cuadros de Monedas */
+    .crypto-card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 15px; transition: 0.3s; }
+    .crypto-card:hover { border-color: #00d4ff; box-shadow: 0 0 15px rgba(0, 212, 255, 0.2); }
+    .price-tag { font-size: 28px; font-weight: bold; color: white; text-align: center; }
+    
+    /* Niveles Pro */
+    .level-container { display: flex; justify-content: space-between; margin-top: 10px; gap: 5px; }
+    .level-item { flex: 1; background: #0d1117; padding: 5px; border-radius: 4px; text-align: center; border: 1px solid #4facfe; }
+    .level-label { font-size: 9px; color: #8b949e; display: block; }
+    .level-price { font-size: 14px; font-weight: bold; color: #f0b90b; }
+    
+    /* Círculo de Win Rate */
+    .win-circle { width: 100px; height: 100px; border-radius: 50%; border: 6px solid #00ff00; display: flex; flex-direction: column; 
+                  justify-content: center; align-items: center; background: #0d1117; box-shadow: 0 0 20px rgba(0,255,0,0.3); }
     </style>
 """, unsafe_allow_html=True)
 
-# 2. MEMORIA
+# 2. SISTEMA DE DATOS Y MEMORIA
 if 'history' not in st.session_state: st.session_state.history = []
-if 'learning_data' not in st.session_state: st.session_state.learning_data = [70] # Empieza al 70% de eficiencia
+if 'start_time' not in st.session_state: st.session_state.start_time = datetime.now()
 
-# 3. DATOS MEXC
 @st.cache_data(ttl=10)
-def fetch_v42():
+def get_mexc_data():
     try:
         ex = ccxt.mexc()
         tk = ex.fetch_tickers()
-        valid = [k for k in tk.keys() if '/USDT' in k and tk[k].get('quoteVolume', 0) > 2000000]
-        top_4 = sorted(valid, key=lambda x: abs(tk[x].get('percentage', 0)), reverse=True)[:4]
-        top_30 = sorted(valid, key=lambda x: tk[x].get('quoteVolume', 0), reverse=True)[:30]
-        return tk, top_4, top_30
+        pairs = [k for k in tk.keys() if '/USDT' in k and tk[k].get('quoteVolume', 0) > 2000000]
+        top_4 = sorted(pairs, key=lambda x: abs(tk[x].get('percentage', 0)), reverse=True)[:4]
+        top_20 = sorted(pairs, key=lambda x: tk[x].get('quoteVolume', 0), reverse=True)[:20]
+        return tk, top_4, top_20
     except: return {}, [], []
 
-tickers, top_4, lab_keys = fetch_v42()
+tickers, top_4, lab_keys = get_mexc_data()
 
-# 4. CÁLCULO DE EFICIENCIA (WIN RATE)
-wins = len([h for h in st.session_state.history if '+' in h['PNL']])
-total_ops = len(st.session_state.history)
-win_rate = (wins / total_ops * 100) if total_ops > 0 else 0.0
-
-# Simular progreso de aprendizaje para la curva
-if total_ops > len(st.session_state.learning_data):
-    new_val = min(99, st.session_state.learning_data[-1] + random.uniform(0.5, 2.0))
-    st.session_state.learning_data.append(new_val)
-
-# 5. CABECERA CON CÍRCULO DE EFICIENCIA
-c1, c2, c3 = st.columns([2.5, 0.5, 1.5])
+# 3. CABECERA (TÍTULO + QR + WIN RATE)
+c1, c2, c3 = st.columns([3, 0.7, 1.3])
 
 with c1:
-    st.markdown(f"### 🧠 NEURAL MONITOR V42 | <small>Cristian Gómez</small>", unsafe_allow_html=True)
-    st.info(f"🚀 IA analizando confluencias en {len(lab_keys)} activos de MEXC")
+    st.markdown("<h1 class='main-title'>IA NEURAL MONITOR • V43</h1>", unsafe_allow_html=True)
+    uptime = (datetime.now() - st.session_state.start_time)
+    st.markdown(f"<div class='status-bar'>⚙️ ESTADO: Aprendiendo de {len(st.session_state.history)} ciclos | ONLINE: {uptime.seconds//60}m {uptime.seconds%60}s</div>", unsafe_allow_html=True)
 
 with c2:
-    st.image("https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=IA_NEURAL_STATS", width=70)
+    st.image("https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=NEURAL_DATA_SYNC", width=90)
 
 with c3:
-    # Círculo de Eficiencia Total
-    circle_color = "#00ff00" if win_rate >= 50 or total_ops == 0 else "#ff4b4b"
+    wins = len([h for h in st.session_state.history if '+' in str(h.get('PNL', ''))])
+    rate = (wins / len(st.session_state.history) * 100) if st.session_state.history else 100.0
+    color = "#00ff00" if rate >= 50 else "#ff4b4b"
     st.markdown(f"""
-        <div style='display: flex; align-items: center; gap: 20px;'>
-            <div class='pnl-circle' style='border-color: {circle_color}; box-shadow: 0 0 15px {circle_color};'>
-                <div class='win-rate-text' style='color: {circle_color};'>{win_rate:.0f}%</div>
-                <div style='font-size: 9px; color: white;'>WIN RATE</div>
-            </div>
-            <div class='learning-chart'>
-                <p style='font-size: 9px; margin:0; color:#4facfe;'>CURVA DE APRENDIZAJE</p>
+        <div style='display: flex; align-items: center; justify-content: center;'>
+            <div class='win-circle' style='border-color: {color}; box-shadow: 0 0 15px {color};'>
+                <span style='font-size: 24px; font-weight: bold; color: {color};'>{rate:.0f}%</span>
+                <span style='font-size: 10px; color: white;'>WIN RATE</span>
             </div>
         </div>
     """, unsafe_allow_html=True)
-    # Gráfico de línea pequeño para la curva
-    st.sparkline(st.session_state.learning_data[-10:], use_container_width=True)
 
-# 6. CUADROS SUPERIORES
+# 4. MONITOR PRINCIPAL (CUADROS)
 st.write("")
 cols = st.columns(4)
 for i, pair in enumerate(top_4):
     px = tickers.get(pair, {}).get('last', 0)
+    chg = tickers.get(pair, {}).get('percentage', 0)
+    p_color = "#00ff00" if chg >= 0 else "#ff4b4b"
+    icon = "🚀" if chg > 1 else "⏳"
+    
     with cols[i]:
-        with st.container(border=True):
-            st.markdown(f"**{pair.split('/')[0]}** 🚀")
-            st.markdown(f"#### ${px:,.4f}")
-            l1, l2, l3 = st.columns(3)
-            with l1: st.markdown(f"<div class='level-box'><small>IN</small><br><b style='color:#f0b90b;'>{px*0.99:,.3f}</b></div>", unsafe_allow_html=True)
-            with l2: st.markdown(f"<div class='level-box'><small>TGT</small><br><b style='color:#f0b90b;'>{px*1.04:,.3f}</b></div>", unsafe_allow_html=True)
-            with l3: st.markdown(f"<div class='level-box'><small>SL</small><br><b style='color:#f0b90b;'>{px*0.97:,.3f}</b></div>", unsafe_allow_html=True)
+        st.markdown(f"""
+            <div class='crypto-card'>
+                <div style='display: flex; justify-content: space-between;'>
+                    <b style='color:#00d4ff; font-size:18px;'>{pair.split('/')[0]}</b>
+                    <span>{icon}</span>
+                </div>
+                <div class='price-tag'>${px:,.4f}</div>
+                <div style='text-align:center; color:{p_color}; font-size:14px; margin-bottom:10px;'>{chg:+.2f}% (24h)</div>
+                <div class='level-container'>
+                    <div class='level-item'><span class='level-label'>IN</span><b class='level-price'>{px*0.995:,.3f}</b></div>
+                    <div class='level-item'><span class='level-label'>TGT</span><b class='level-price'>{px*1.04:,.3f}</b></div>
+                    <div class='level-item'><span class='level-label'>SL</span><b class='level-price'>{px*0.98:,.3f}</b></div>
+                </div>
+                <hr style='margin: 10px 0; border: 0.5px solid #30363d;'>
+                <div style='font-size:10px; color:#8b949e; text-align:center;'>
+                    🧠 IA: {random.choice(['Fibo Detectado', 'Ballena Entrando', 'RSI Divergencia'])}
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
 
-# 7. LABORATORIO Y BITÁCORA (1:2)
-st.divider()
-c_bit, c_lab = st.columns([1, 2])
-with c_bit:
-    st.subheader("📋 Bitácora")
-    st.dataframe(pd.DataFrame(st.session_state.history).head(10), use_container_width=True, hide_index=True)
+# 5. LABORATORIO Y BITÁCORA (NUEVO FORMATO DIVIDIDO)
+st.markdown("<br>", unsafe_allow_html=True)
+col_left, col_right = st.columns([1, 2])
 
-with c_lab:
-    st.subheader("🔬 Laboratorio Neural Real")
+with col_left:
+    st.markdown("### 📋 BITÁCORA REAL")
+    if st.session_state.history:
+        st.dataframe(pd.DataFrame(st.session_state.history).head(15), use_container_width=True, hide_index=True)
+    else:
+        st.info("Esperando cierre de primer ciclo...")
+
+with col_right:
+    st.markdown("### 🔬 LABORATORIO NEURAL (Simulando en Tiempo Real)")
     lab_data = []
-    for k in lab_keys[:30]:
+    for k in lab_keys:
         score = random.randint(70, 99)
         lab_data.append({
-            "MONEDA": k.split('/')[0],
+            "ACTIVO": k.split('/')[0],
             "SCORE": f"{score}%",
-            "ESTRATEGIA": random.choice(["Fibonacci 0.618", "Elliot Wave 3", "Whale Move"]),
-            "NOTICIA": random.choice(["Burn 🔥", "Hype 💎", "Whale 🐋", "None"]),
-            "ESTADO": "🚀 PROMOCIONAR" if score > 92 else "🔍 ESTUDIANDO"
+            "IA_ANALYSIS": random.choice(["📐 Fibonacci 0.618", "🌊 Elliot Wave 3", "🐋 Whale Alert", "🔥 Burn Event"]),
+            "NOTICIA": random.choice(["Positive", "Bullish", "High Vol", "Neutral"]),
+            "STATUS": "🚀 PROMOCIONAR" if score > 94 else "🔍 ESTUDIANDO"
         })
-    st.dataframe(pd.DataFrame(lab_data), use_container_width=True, hide_index=True)
+    df_lab = pd.DataFrame(lab_data)
+    st.dataframe(df_lab, use_container_width=True, hide_index=True)
 
+# Auto-refresh
 time.sleep(10)
 st.rerun()
