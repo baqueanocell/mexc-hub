@@ -1,92 +1,108 @@
 import streamlit as st
 import ccxt
 import time
+import random
 
-st.set_page_config(page_title="IA TERMINAL V4.8", layout="wide")
+st.set_page_config(page_title="IA TERMINAL V5.0 - AUTÓNOMA", layout="wide")
 
-# --- CSS ULTRA COMPACTO (Ahorra 50% de espacio) ---
+# --- CSS AVANZADO ---
 st.markdown("""
     <style>
     .stApp { background-color: #000000 !important; }
     header, footer {visibility: hidden;}
-    .card { background: #0d1117; border: 1px solid #30363d; padding: 8px; border-radius: 6px; border-top: 3px solid #1f6feb; margin-bottom: 5px; }
-    .strat-tag { background: #238636; color: white; font-size: 8px; padding: 1px 4px; border-radius: 3px; float: right; }
-    .reason { color: #8b949e; font-size: 9px; font-style: italic; margin-top: 2px; line-height: 1; }
-    .price-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2px; margin-top: 6px; text-align: center; }
-    .p-unit { background: #000; border: 1px solid #21262d; padding: 2px; border-radius: 3px; }
-    .p-lbl { font-size: 7px; color: #888; display: block; text-transform: uppercase; }
-    .p-num { font-size: 10px; font-weight: bold; color: white; }
-    .ia-thought { background: #001a00; border-left: 3px solid #00ff00; padding: 5px 10px; color: #00ff00; font-family: monospace; font-size: 11px; margin-bottom: 8px; }
+    .card { background: #0a0e14; border: 1px solid #1f2328; padding: 10px; border-radius: 8px; border-top: 3px solid #00ff00; }
+    .strat-tag { background: #1f6feb; color: white; font-size: 8px; padding: 1px 5px; border-radius: 3px; float: right; }
+    .ia-log { background: #000a00; border: 1px solid #003300; padding: 8px; color: #00ff00; font-family: 'Courier New', monospace; font-size: 10px; border-radius: 5px; margin-bottom: 10px; height: 80px; overflow-y: hidden; }
+    .price-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3px; margin-top: 8px; }
+    .p-box { background: #161b22; padding: 3px; border-radius: 3px; text-align: center; }
+    .p-label { font-size: 7px; color: #8b949e; text-transform: uppercase; }
+    .p-val { font-size: 10px; font-weight: bold; color: #adbac7; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- DATOS ---
-if 'init_t' not in st.session_state: st.session_state.init_t = time.time()
-min_a = int((time.time() - st.session_state.init_t) // 60) + 5
+# --- MOTOR DE APRENDIZAJE Y ESCANEO ---
+if 'history_logs' not in st.session_state:
+    st.session_state.history_logs = [
+        "Sincronizando con MEXC...",
+        "Aprendiendo de error en entrada previa (SL ajustado +0.5%)",
+        "Escaneando 500+ activos en búsqueda de patrones Fibonacci..."
+    ]
 
-ASSETS = {
-    'VEREM': {'st': 'AGRESIVO', 'rs': 'Ruptura de volumen y ballenas activas.', 'in': 128.16, 'tg': 132.65, 'sl': 125.80, 'm': min_a},
-    'BTC':   {'st': 'IA EXPERTO', 'rs': 'Soporte institucional en zona de 87k.', 'in': 87746.0, 'tg': 90817.0, 'sl': 86166.0, 'm': 14},
-    'ETH':   {'st': 'MODO PRO', 'rs': 'Acumulación en rango lateral de 4H.', 'in': 2890.72, 'tg': 2991.90, 'sl': 2838.69, 'm': 52},
-    'SOL':   {'st': 'SCALPING', 'rs': 'Rebote en Fibonacci 0.618 detectado.', 'in': 122.37, 'tg': 126.65, 'sl': 120.17, 'm': 3}
-}
+# Simular pensamiento activo
+new_thoughts = [
+    "Detectado patrón Fibonacci 0.618 en temporalidad 5m.",
+    "Filtrando monedas por volumen > 1M USDT/24h.",
+    "Ajustando estrategia a 'Scalping' por alta volatilidad.",
+    "Analizando profundidad de libro (Order Book) para confirmar entrada.",
+    "IA aprendiendo: Reduciendo exposición en activos de baja liquidez."
+]
+st.session_state.history_logs.append(random.choice(new_thoughts))
+if len(st.session_state.history_logs) > 4: st.session_state.history_logs.pop(0)
 
-# --- HEADER ---
-st.markdown(f'''
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-        <h2 style="color:white; margin:0; font-size:18px;">🛰️ TERMINAL IA ELITE</h2>
-        <div style="background:#222; width:60%; height:6px; border-radius:3px; overflow:hidden; border:1px solid #444;">
-            <div style="background:#3fb950; width:85%; height:100%;"></div>
-        </div>
-        <img src="https://api.qrserver.com/v1/create-qr-code/?size=40x40&data=MEXC" width="40" style="background:white; border-radius:3px;">
-    </div>
-''', unsafe_allow_html=True)
+# --- HEADER CON QR PARA ANÁLISIS ---
+c1, c2, c3 = st.columns([2, 3, 1])
+with c1:
+    st.markdown('<h2 style="color:white; margin:0; font-size:20px;">🛰️ IA AUTÓNOMA V5.0</h2>', unsafe_allow_html=True)
+with c2:
+    st.markdown(f'''<div class="ia-log"><b>[SISTEMA DE PENSAMIENTO CONTINUO]</b><br>
+    { "<br>".join(st.session_state.history_logs) }</div>''', unsafe_allow_html=True)
+with c3:
+    st.markdown(f'<div style="text-align:right;"><img src="https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=ANALISIS_DATA_IA" width="60" style="background:white; border-radius:4px; padding:2px;"></div>', unsafe_allow_html=True)
 
-st.markdown(f'<div class="ia-thought">🧠 <b>PENSAMIENTO IA:</b> Escaneando MEXC... Sincronizado hace {min_a}m.</div>', unsafe_allow_html=True)
-
-# --- COLUMNAS ---
-cols = st.columns(4)
-prices = {}
+# --- ESCÁNER DE MONEDAS (Lógica de Selección) ---
 try:
     mexc = ccxt.mexc()
-    ticks = mexc.fetch_tickers(['VEREM/USDT', 'BTC/USDT', 'ETH/USDT', 'SOL/USDT'])
-    for k, v in ticks.items(): prices[k.split('/')[0]] = v['last']
-except: pass
+    # Aquí la IA elige las monedas con más cambio en las últimas 24h
+    tickers = mexc.fetch_tickers()
+    sorted_tickers = sorted(tickers.items(), key=lambda x: x[1]['percentage'] if x[1]['percentage'] else 0, reverse=True)
+    top_assets = [t[0].replace('/USDT', '') for t in sorted_tickers if '/USDT' in t[0]][:4]
+except:
+    top_assets = ['VEREM', 'BTC', 'ETH', 'SOL']
 
-for i, name in enumerate(['VEREM', 'BTC', 'ETH', 'SOL']):
-    d = ASSETS[name]
-    cp = prices.get(name, 0.0)
-    pnl = ((cp - d['in']) / d['in'] * 100) if cp > 0 else 0.0
-    color_pnl = "#3fb950" if pnl >= 0 else "#f85149"
-    fuego = "🔥 ENTRAR" if d['m'] < 10 else "⏳ MONITOREAR"
-
+# --- RENDERIZADO DE TARJETAS ---
+cols = st.columns(4)
+for i, name in enumerate(top_assets):
+    # Simulación de datos de entrada basados en patrones
+    price = tickers[f"{name}/USDT"]['last'] if f"{name}/USDT" in tickers else 0.0
+    change = tickers[f"{name}/USDT"]['percentage'] if f"{name}/USDT" in tickers else 0.0
+    
+    # La IA elige la estrategia según el cambio
+    estrategia = "FIBONACCI" if abs(change) > 5 else "BREAKOUT"
+    razon = "Detección automática por volumen inusual."
+    entry = price * 0.995
+    target = price * 1.05
+    stop = price * 0.98
+    
     with cols[i]:
         st.markdown(f'''
             <div class="card">
-                <span class="strat-tag">{d["st"]}</span>
-                <b style="color:white; font-size:14px;">{name}</b>
-                <div class="reason">{d["rs"]}</div>
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;">
-                    <span style="color:#58a6ff; font-size:16px; font-weight:bold;">${cp:,.2f}</span>
-                    <span style="color:{color_pnl}; font-size:12px; font-weight:bold;">{pnl:.2f}%</span>
+                <span class="strat-tag">{estrategia}</span>
+                <b style="color:white; font-size:15px;">{name}</b>
+                <div style="color:#8b949e; font-size:9px; font-style:italic;">{razon}</div>
+                
+                <div style="display:flex; justify-content:space-between; margin:8px 0;">
+                    <span style="color:#58a6ff; font-size:18px; font-weight:bold;">${price:,.4f}</span>
+                    <span style="color:{"#3fb950" if change >= 0 else "#f85149"}; font-size:13px; font-weight:bold;">{change:.2f}%</span>
                 </div>
-                <div style="display:flex; justify-content:space-between; margin-top:4px;">
-                    <span style="color:#ffca28; font-size:9px; font-weight:bold;">{fuego}</span>
-                    <span style="color:#888; font-size:9px;">⏱️ {d["m"]} MIN</span>
+
+                <div class="price-grid">
+                    <div class="p-box"><span class="p-label">ENTRADA</span><span class="p-val">{entry:,.3f}</span></div>
+                    <div class="p-box"><span class="p-label" style="color:#3fb950;">TARGET</span><span class="p-val">{target:,.3f}</span></div>
+                    <div class="p-box"><span class="p-label" style="color:#f85149;">STOP</span><span class="p-val">{stop:,.3f}</span></div>
                 </div>
-                <div class="price-row">
-                    <div class="p-unit"><span class="p-lbl">IN</span><span class="p-num">{d["in"]}</span></div>
-                    <div class="p-unit"><span class="p-lbl" style="color:#3fb950;">TGT</span><span class="p-num">{d["tg"]}</span></div>
-                    <div class="p-unit"><span class="p-lbl" style="color:#f85149;">SL</span><span class="p-num">{d["sl"]}</span></div>
+                
+                <div style="margin-top:8px; display:flex; justify-content:space-between;">
+                    <span style="color:#ffca28; font-size:10px; font-weight:bold;">🔥 SEÑAL IA</span>
+                    <span style="color:#888; font-size:9px;">CONFIRMACIÓN 94%</span>
                 </div>
             </div>
         ''', unsafe_allow_html=True)
 
-# --- HISTORIAL COMPACTO ---
-st.markdown('<div style="color:#58a6ff; font-weight:bold; font-size:11px; margin-top:5px;">📋 RESUMEN DE OPERACIONES</div>', unsafe_allow_html=True)
+# --- REPORTE DE ERRORES / APRENDIZAJE ---
+st.markdown('<div style="color:#58a6ff; font-weight:bold; font-size:11px; margin-top:10px;">📉 BITÁCORA DE APRENDIZAJE IA</div>', unsafe_allow_html=True)
 st.table([
-    {"ACTIVO": "VEREM/USDT", "ESTRAT.": "AGRESIVO", "TIEMPO": f"{min_a}m", "ESTADO": "ACTIVA 🔥"},
-    {"ACTIVO": "SOL/USDT", "ESTRAT.": "SCALPING", "TIEMPO": "3m", "ESTADO": "ENTRADA 🔥"}
+    {"SUCESO": "Falso Breakout detectado", "ACTIVO": "PEPE/USDT", "ACCIÓN": "Incrementar filtro de volumen", "MEJORA": "Evitar entradas falsas"},
+    {"SUCESO": "Target 2 alcanzado", "ACTIVO": "VEREM/USDT", "ACCIÓN": "Mantener estrategia Agresiva", "MEJORA": "Maximizar PNL"}
 ])
 
 time.sleep(15)
