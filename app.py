@@ -8,47 +8,43 @@ import pytz
 from streamlit_autorefresh import st_autorefresh
 st_autorefresh(interval=10000, key="datarefresh")
 
-st.set_page_config(page_title="MEXC Inteligencia IA", layout="wide")
+st.set_page_config(page_title="IA MEXC PRO", layout="wide")
 
-# --- CSS PRO (DISEÑO DE CARTAS SEPARADAS) ---
+# --- CSS DE ALTA JERARQUÍA (NÚMEROS GRANDES) ---
 st.markdown("""
     <style>
     .main { background-color: #0b0e14; }
     [data-testid="column"] { width: 49% !important; flex: 1 1 49% !important; min-width: 49% !important; }
-    div[data-testid="stHorizontalBlock"] { display: flex !important; flex-direction: row !important; }
-    .stProgress > div > div > div > div { height: 2px !important; }
     
+    /* Tarjeta Compacta con Foco en Números */
     .card-pro { 
         background-color: #161b22; 
         border: 1px solid #30363d; 
-        padding: 8px; 
-        margin-bottom: 6px; 
-        border-radius: 6px;
-        box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+        padding: 10px; 
+        margin-bottom: 8px; 
+        border-radius: 8px;
     }
-    .price-big { color: #58a6ff; font-size: 16px !important; font-weight: bold; font-family: monospace; }
-    .strategy-tag { 
-        font-size: 9px; padding: 2px 5px; border-radius: 3px; 
-        background-color: #238636; color: white; font-weight: bold;
-    }
-    .label-micro { font-size: 7px !important; color: #8b949e; margin-bottom: -15px; }
+    
+    /* Precios y Ejecución */
+    .price-main { color: #58a6ff; font-size: 18px !important; font-weight: bold; font-family: monospace; }
+    .exec-box { background: #0d1117; padding: 5px; border-radius: 4px; margin-top: 5px; border: 1px solid #21262d; }
+    .val-e { color: #ffffff; font-size: 15px !important; font-weight: bold; }
+    .val-t { color: #3fb950; font-size: 15px !important; font-weight: bold; }
+    .val-s { color: #f85149; font-size: 15px !important; font-weight: bold; }
+    
+    .label-micro { font-size: 8px !important; color: #8b949e; text-transform: uppercase; margin-bottom: -15px; }
+    .stProgress > div > div > div > div { height: 2px !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- CONFIGURACIÓN ---
+# --- LÓGICA DE MERCADO ---
 exchange = ccxt.mexc()
 tz_arg = pytz.timezone('America/Argentina/Buenos_Aires')
 
 if 'signals' not in st.session_state: st.session_state.signals = {}
-if 'historial_cerrado' not in st.session_state: st.session_state.historial_cerrado = []
+if 'hist_cerrado' not in st.session_state: st.session_state.hist_cerrado = []
 
-def asignar_estrategia(sym, change):
-    if "VEREM" in sym: return "Agresivo"
-    if "BTC" in sym or "ETH" in sym: return "Fibonacci"
-    if abs(change) > 5: return "Impulso Pro"
-    return "Experto / Ballenas"
-
-def get_market_data():
+def get_pro_data():
     try:
         tickers = exchange.fetch_tickers()
         df = pd.DataFrame.from_dict(tickers, orient='index')
@@ -62,70 +58,62 @@ def get_market_data():
         for sym in symbols[:10]:
             if sym in tickers:
                 t = tickers[sym]
-                p = t['last']
-                ch = t['percentage'] or 0
+                p, ch = t['last'], (t['percentage'] or 0)
                 s_name = sym.replace('/USDT', '')
                 
-                # Gestión de Señales y Cierre
-                if s_name not in st.session_state.signals or now > st.session_state.signals[s_name]['expires']:
-                    # Registrar cierre en historial si existía
+                # Gestión de Ciclos de 20 min
+                if s_name not in st.session_state.signals or now > st.session_state.signals[s_name]['exp']:
                     if s_name in st.session_state.signals:
                         old = st.session_state.signals[s_name]
-                        pnl_f = ((p - old['entry']) / old['entry']) * 100
-                        st.session_state.historial_cerrado.insert(0, {
-                            "Hora Cierre": now.strftime("%H:%M"),
-                            "Moneda": s_name,
-                            "Estrategia": old['strat'],
-                            "Resultado": f"{pnl_f:.2f}%"
+                        pnl_f = ((p - old['e']) / old['e']) * 100
+                        st.session_state.hist_cerrado.insert(0, {
+                            "Hora": now.strftime("%H:%M"), "Moneda": s_name, "Resultado": f"{pnl_f:.2f}%"
                         })
                     
-                    # Nueva Señal con Estrategia Individual
-                    strat = asignar_estrategia(s_name, ch)
-                    tp_val = 1.04 if strat == "Agresivo" else 1.025
-                    
+                    # Estrategia según moneda
+                    strat = "Agresivo" if "VEREM" in s_name else "Scalping"
                     st.session_state.signals[s_name] = {
-                        'entry': p, 'tp': p * tp_val, 'sl': p * 0.985,
-                        'strat': strat, 'expires': now + timedelta(minutes=20)
+                        'e': p, 't': p * (1.035 if strat == "Agresivo" else 1.02),
+                        's': p * 0.988, 'exp': now + timedelta(minutes=20)
                     }
                 
                 sig = st.session_state.signals[s_name]
-                pnl_act = ((p - sig['entry']) / sig['entry']) * 100
+                pnl = ((p - sig['e']) / sig['e']) * 100
 
                 current_data.append({
-                    "n": s_name, "p": p, "strat": sig['strat'], "entry": sig['entry'],
-                    "tp": sig['tp'], "sl": sig['sl'], "pnl": pnl_act,
-                    "soc": min(max(80 + (ch * 1.5), 30), 98), "ball": 75 if ch > 0 else 40, "imp": min(max(ch+50, 10), 95)
+                    "n": s_name, "p": p, "e": sig['e'], "t": sig['t'], "s": sig['s'],
+                    "pnl": pnl, "soc": min(max(80 + (ch*1.5), 20), 98),
+                    "ball": 75 if ch > 0 else 45, "imp": min(max(ch+50, 5), 95)
                 })
         return current_data
     except: return []
 
-# --- INTERFAZ ---
-st.markdown(f"### 🤖 MEXC INTELIGENCIA IA <span style='font-size:12px; color:#8b949e;'>{datetime.now(tz_arg).strftime('%H:%M:%S')} ARG</span>", unsafe_allow_html=True)
+# --- UI ---
+st.markdown(f"### 🤖 MEXC INTELIGENCIA IA | {datetime.now(tz_arg).strftime('%H:%M:%S')}")
 
-data = get_market_data()
+data = get_pro_data()
 
-# RECOMENDACIÓN TOP
-if data:
-    best = max(data, key=lambda x: x['imp'])
-    st.markdown(f"""
-    <div style="background: #161b22; padding: 10px; border-radius: 6px; border-left: 4px solid #58a6ff; margin-bottom: 10px;">
-        <span class="strategy-tag">{best['strat']}</span><br>
-        <b style="font-size:18px; color:white;">{best['n']}</b> <span class="price-big" style="margin-left:10px;">${best['p']}</span>
-        <div style="color:{'#3fb950' if best['pnl'] >= 0 else '#f85149'}; font-weight:bold;">PNL: {best['pnl']:.2f}%</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-# GRILLA 2 COLUMNAS (MÓVIL VERTICAL)
+# GRILLA 2 COLUMNAS
 cols = st.columns(2)
 for idx, m in enumerate(data):
     with cols[idx % 2]:
+        pnl_color = "#3fb950" if m['pnl'] >= 0 else "#f85149"
         st.markdown(f"""
         <div class="card-pro">
-            <span class="strategy-tag" style="background:#30363d">{m['strat']}</span><br>
-            <b style="font-size:13px;">{m['n']}</b> <span class="price-big" style="float:right;">${m['p']}</span><br>
-            <span style="font-size:11px; color:{'#3fb950' if m['pnl'] >= 0 else '#f85149'};">PNL: {m['pnl']:.2f}%</span>
-            <div style="font-size:8px; color:#8b949e; margin-top:2px;">E: {m['entry']:.3f} | T: {m['tp']:.3f}</div>
-            <div class="label-micro">IA SCORE</div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <b style="font-size:15px; color:white;">{m['n']}</b>
+                <span class="price-main">${m['p']}</span>
+            </div>
+            <div style="font-size:12px; color:{pnl_color}; font-weight:bold; margin-bottom:5px;">
+                PNL: {m['pnl']:.2f}%
+            </div>
+            <div class="exec-box">
+                <span style="color:#8b949e; font-size:10px;">ORDEN IA:</span><br>
+                <span class="val-e">E: {m['e']:.4f}</span><br>
+                <span class="val-t">T: {m['t']:.4f}</span><br>
+                <span class="val-s">S: {m['s']:.4f}</span>
+            </div>
+            <div class="label-micro" style="margin-top:10px;">SOCIAL</div>
         </div>
         """, unsafe_allow_html=True)
         st.progress(m['soc']/100)
@@ -136,7 +124,7 @@ for idx, m in enumerate(data):
 
 st.write("---")
 
-# --- HISTORIAL DE CIERRES ---
-st.subheader("📜 Cierres de Ciclo (20 min)")
-if st.session_state.historial_cerrado:
-    st.table(pd.DataFrame(st.session_state.historial_cerrado).head(10))
+# --- HISTORIAL ---
+st.markdown("### 📜 CIERRES DE OPERACIÓN (20 MIN)")
+if st.session_state.hist_cerrado:
+    st.table(pd.DataFrame(st.session_state.hist_cerrado).head(10))
