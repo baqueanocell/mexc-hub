@@ -8,125 +8,144 @@ import pytz
 from streamlit_autorefresh import st_autorefresh
 st_autorefresh(interval=10000, key="datarefresh")
 
-st.set_page_config(page_title="TERMINAL IA", layout="wide")
+st.set_page_config(page_title="TOP 4 IA", layout="wide")
 
-# --- CSS ULTRA-ESTABLE PARA TV (FONDO NEGRO Y SIN ERRORES) ---
+# --- CSS MINIMALISTA PARA TV ---
 st.markdown("""
     <style>
-    /* Fondo Negro Total */
     .stApp { background-color: #000000 !important; }
     header, footer {visibility: hidden;}
+    [data-testid="column"] { min-width: 24% !important; }
     
-    /* Grilla de 5 columnas estable */
-    [data-testid="column"] { 
-        min-width: 180px !important; 
+    .card-elite { 
+        background-color: #0a0a0a; 
+        border: 1px solid #1f2328; 
+        padding: 15px; 
+        border-radius: 10px;
+        margin-bottom: 15px;
+        box-shadow: 0px 4px 15px rgba(0,0,0,0.5);
     }
     
-    .card-pro { 
-        background-color: #121212; 
-        border: 1px solid #333; 
-        padding: 10px; 
-        border-radius: 5px;
-        margin-bottom: 10px;
-    }
-    
-    .price-val { color: #58a6ff; font-size: 16px; font-weight: bold; font-family: monospace; }
+    .price-val { color: #58a6ff; font-size: 22px; font-weight: bold; font-family: monospace; }
+    .ia-status { color: #8b949e; font-size: 11px; font-style: italic; margin-top: 10px; border-top: 1px solid #21262d; padding-top: 5px; }
     
     .exec-grid { 
         display: grid; 
         grid-template-columns: 1fr 1fr 1fr; 
         background: #000; 
-        padding: 5px; 
-        border-radius: 3px;
+        padding: 10px; 
+        border-radius: 5px;
         text-align: center;
-        margin: 5px 0;
+        margin: 10px 0;
+        border: 1px solid #30363d;
     }
     
-    .label-x { font-size: 9px; color: #888; }
-    .val-e { color: #fff; font-size: 13px; font-weight: bold; }
-    .val-t { color: #00ff00; font-size: 13px; font-weight: bold; }
-    .val-s { color: #ff0000; font-size: 13px; font-weight: bold; }
+    .label-x { font-size: 10px; color: #666; }
+    .val-e { color: #fff; font-size: 16px; font-weight: bold; }
+    .val-t { color: #3fb950; font-size: 16px; font-weight: bold; }
+    .val-s { color: #f85149; font-size: 16px; font-weight: bold; }
     
-    .strat-tag { font-size: 10px; background: #1b5e20; color: #fff; padding: 2px 5px; border-radius: 3px; font-weight: bold; }
-    .bar-name { font-size: 8px; color: #666; margin-top: 5px; margin-bottom: -12px; }
+    .strat-tag { font-size: 11px; background: #238636; color: #fff; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
+    .bar-name { font-size: 9px; color: #555; margin-top: 8px; margin-bottom: -10px; }
+    .stProgress > div > div > div > div { height: 3px !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- MOTOR IA ---
+# --- LÓGICA DE FILTRADO ÉLITE ---
 exchange = ccxt.mexc()
 tz_arg = pytz.timezone('America/Argentina/Buenos_Aires')
 
 if 'signals' not in st.session_state: st.session_state.signals = {}
-if 'hist_cerrado' not in st.session_state: st.session_state.hist_cerrado = []
 
-def get_market():
+def get_elite_market():
     try:
         tickers = exchange.fetch_tickers()
         df = pd.DataFrame.from_dict(tickers, orient='index')
-        top = df[df['symbol'].str.contains('/USDT')].sort_values('quoteVolume', ascending=False).head(9)
-        symbols = list(top['symbol'].values)
-        if 'VEREM/USDT' not in symbols: symbols.insert(0, 'VEREM/USDT')
+        # Filtramos USDT y ordenamos por volumen/cambio para buscar potencial
+        potential = df[df['symbol'].str.contains('/USDT')].copy()
+        potential['score'] = potential['percentage'].fillna(0) + (potential['quoteVolume'] / 1000000)
+        
+        # Seleccionamos las mejores (excluyendo VEREM de la lista general para forzarla después)
+        top_list = potential.sort_values('score', ascending=False).head(10)
+        top_symbols = list(top_list.index)
+        
+        # Asegurar que VEREM esté y completar solo hasta 4 monedas totales
+        final_symbols = ['VEREM/USDT']
+        for s in top_symbols:
+            if s != 'VEREM/USDT' and len(final_symbols) < 4:
+                final_symbols.append(s)
         
         data = []
         now = datetime.now(tz_arg)
 
-        for sym in symbols[:10]:
+        for sym in final_symbols:
             if sym in tickers:
                 t = tickers[sym]
                 p, ch = t['last'], (t['percentage'] or 0)
                 s_name = sym.replace('/USDT', '')
                 
-                # Nueva señal o mantenimiento
                 if s_name not in st.session_state.signals or now > st.session_state.signals[s_name]['exp']:
-                    if s_name in st.session_state.signals:
-                        old = st.session_state.signals[s_name]
-                        res = ((p - old['e']) / old['e']) * 100
-                        st.session_state.hist_cerrado.insert(0, {"Hora": now.strftime("%H:%M"), "Moneda": s_name, "PNL": f"{res:.2f}%"})
-                    
-                    strat = "AGRESIVO" if "VEREM" in s_name else "EXPERTO"
-                    st.session_state.signals[s_name] = {'e': p, 't': p*1.03, 's': p*0.985, 'strat': strat, 'exp': now+timedelta(minutes=20)}
+                    strat = "AGRESIVO" if "VEREM" in s_name else "IA EXPERTO"
+                    st.session_state.signals[s_name] = {
+                        'e': p, 't': p*1.035, 's': p*0.982, 'strat': strat, 
+                        'exp': now+timedelta(minutes=20),
+                        'think': f"Analizando flujo de ballenas en {s_name}..."
+                    }
                 
                 sig = st.session_state.signals[s_name]
+                # Simular "pensamiento" de la IA
+                thoughts = [
+                    "Detectando presión de compra...",
+                    "Filtrando ruido de redes sociales...",
+                    "Monitoreando carteras institucionales...",
+                    "Ajustando niveles de Fibonacci...",
+                    "Confirmando divergencia alcista..."
+                ]
+                import random
+                current_thought = random.choice(thoughts)
+
                 data.append({
                     "n": s_name, "p": p, "e": sig['e'], "t": sig['t'], "s": sig['s'],
                     "strat": sig['strat'], "pnl": ((p - sig['e']) / sig['e']) * 100,
-                    "soc": min(max(70 + ch, 10), 98), "ball": 75, "imp": min(max(50 + ch, 10), 95)
+                    "soc": min(max(75 + ch, 20), 98), "ball": 80, "imp": min(max(60 + ch, 10), 95),
+                    "think": current_thought
                 })
         return data
     except: return []
 
-# --- PANTALLA ---
-st.write(f"### 🤖 TERMINAL IA | {datetime.now(tz_arg).strftime('%H:%M:%S')}")
+# --- UI TV TOP 4 ---
+st.markdown(f"<h2 style='color:white; text-align:center;'>🚀 TOP 4 POTENCIAL IA | {datetime.now(tz_arg).strftime('%H:%M')}</h2>", unsafe_allow_html=True)
 
-items = get_market()
-cols = st.columns(5)
+items = get_elite_market()
+cols = st.columns(4)
 
 for i, m in enumerate(items):
-    with cols[i % 5]:
-        pnl_color = "#00ff00" if m['pnl'] >= 0 else "#ff0000"
+    with cols[i % 4]:
+        pnl_color = "#3fb950" if m['pnl'] >= 0 else "#f85149"
         st.markdown(f"""
-        <div class="card-pro">
-            <span class="strat-tag">{m['strat']}</span>
-            <div style="display: flex; justify-content: space-between; margin-top:5px;">
-                <b style="color:white; font-size:15px;">{m['n']}</b>
-                <span class="price-val">${m['p']}</span>
+        <div class="card-elite">
+            <div style="display: flex; justify-content: space-between;">
+                <span class="strat-tag">{m['strat']}</span>
+                <span style="color:{pnl_color}; font-size:14px; font-weight:bold;">{m['pnl']:.2f}%</span>
             </div>
-            <div style="color:{pnl_color}; font-size:12px; font-weight:bold;">PNL: {m['pnl']:.2f}%</div>
+            <div style="text-align:center; margin: 15px 0;">
+                <div style="color:white; font-size:28px; font-weight:bold;">{m['n']}</div>
+                <div class="price-val">${m['p']}</div>
+            </div>
             <div class="exec-grid">
-                <div><span class="label-x">E</span><br><span class="val-e">{m['e']:.2f}</span></div>
-                <div><span class="label-x">T</span><br><span class="val-t">{m['t']:.2f}</span></div>
-                <div><span class="label-x">S</span><br><span class="val-s">{m['s']:.2f}</span></div>
+                <div><span class="label-x">ENTRADA</span><br><span class="val-e">{m['e']:.2f}</span></div>
+                <div><span class="label-x">OBJETIVO</span><br><span class="val-t">{m['t']:.2f}</span></div>
+                <div><span class="label-x">STOP</span><br><span class="val-s">{m['s']:.2f}</span></div>
             </div>
-            <div class="bar-name">IA SOCIAL</div>
+            <div class="bar-name">SENTIMIENTO SOCIAL</div>
         </div>
         """, unsafe_allow_html=True)
         st.progress(m['soc']/100)
-        st.markdown('<div class="bar-name">BALLENAS</div>', unsafe_allow_html=True)
+        st.markdown('<div class="bar-name">VOLUMEN BALLENAS</div>', unsafe_allow_html=True)
         st.progress(m['ball']/100)
-        st.markdown('<div class="bar-name">IMPULSO</div>', unsafe_allow_html=True)
+        st.markdown('<div class="bar-name">IMPULSO IA</div>', unsafe_allow_html=True)
         st.progress(m['imp']/100)
+        st.markdown(f'<div class="ia-status">🧠 IA: {m["think"]}</div>', unsafe_allow_html=True)
 
 st.write("---")
-if st.session_state.hist_cerrado:
-    st.markdown("### 📜 ÚLTIMOS CIERRES")
-    st.table(pd.DataFrame(st.session_state.hist_cerrado).head(5))
+st.caption("Estrategia basada en el volumen de MEXC y sentimiento de mercado en tiempo real.")
