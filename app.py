@@ -8,154 +8,166 @@ import pytz
 from streamlit_autorefresh import st_autorefresh
 st_autorefresh(interval=10000, key="datarefresh")
 
-st.set_page_config(page_title="IA TERMINAL PRO", layout="wide")
+st.set_page_config(page_title="IA ELITE TERMINAL", layout="wide")
 
-# --- CSS DE ALTA DENSIDAD PARA TV (TODO EN UNA PANTALLA) ---
+# --- CSS DE ALTA PRECISIÓN ---
 st.markdown("""
     <style>
     .stApp { background-color: #000000 !important; color: white; }
     header, footer {visibility: hidden;}
     
-    /* Contenedor Top 4 */
-    [data-testid="column"] { min-width: 24% !important; padding: 5px !important; }
-    
+    /* Contenedor de Moneda */
     .card-elite { 
         background-color: #0d1117; 
         border: 1px solid #30363d; 
-        padding: 10px; 
+        padding: 8px; 
         border-radius: 6px;
-        height: 280px; /* Altura fija para control de pantalla */
+        height: 240px; /* Reducido para dar espacio al historial */
     }
     
-    .symbol-name { font-size: 20px; font-weight: bold; color: #ffffff; }
-    .price-val { color: #58a6ff; font-size: 18px; font-weight: bold; font-family: monospace; }
+    .symbol-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+    .strat-badge { background: #238636; font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+    .symbol-name { font-size: 18px; font-weight: bold; }
     
+    /* Grilla de Precios */
     .exec-grid { 
         display: grid; grid-template-columns: 1fr 1fr 1fr; 
-        background: #000; padding: 4px; border-radius: 4px; 
-        margin: 8px 0; border: 1px solid #21262d; text-align: center;
+        background: #000; padding: 5px; border-radius: 4px; 
+        margin: 5px 0; border: 1px solid #21262d; text-align: center;
     }
-    .val-label { font-size: 8px; color: #8b949e; text-transform: uppercase; }
-    .val-num { font-size: 12px; font-weight: bold; }
+    .val-num { font-size: 11px; font-weight: bold; }
+    .val-label { font-size: 7px; color: #8b949e; }
     
-    /* Barras Ultra-Compactas */
-    .bar-container { margin-top: 5px; }
-    .bar-label { font-size: 8px; color: #444; margin-bottom: -12px; text-transform: uppercase; }
-    .stProgress > div > div > div > div { height: 3px !important; }
+    /* Barras Micro dentro del cuadro */
+    .micro-bar-box { margin-top: 4px; }
+    .micro-label { font-size: 7px; color: #555; display: flex; justify-content: space-between; margin-bottom: -2px; }
+    .stProgress > div > div > div > div { height: 2px !important; }
     
-    .ia-think { 
-        font-size: 9px; color: #8b949e; font-style: italic; 
-        margin-top: 8px; border-top: 1px solid #21262d; padding-top: 4px;
+    /* Barra de Rendimiento Global */
+    .performance-bar-container {
+        width: 100%; background: #222; height: 12px; border-radius: 6px; overflow: hidden; display: flex; margin: 10px 0;
     }
+    .perf-green { background: #3fb950; height: 100%; transition: width 0.5s; }
+    .perf-red { background: #f85149; height: 100%; transition: width 0.5s; }
     
-    /* Historial Integrado */
-    .table-container { background: #000; border: 1px solid #30363d; border-radius: 4px; padding: 5px; margin-top: 10px; }
-    .win-rate-banner {
-        background: linear-gradient(90deg, #1f6feb, #000);
-        padding: 5px 15px; border-radius: 4px; margin-bottom: 10px;
-        display: flex; justify-content: space-between; align-items: center;
-    }
+    /* Historial */
+    .table-section { background: #000; border: 1px solid #30363d; border-radius: 6px; padding: 8px; margin-top: 5px; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- MOTOR DE APRENDIZAJE IA ---
+# --- LÓGICA DE DATOS ---
 exchange = ccxt.mexc()
 tz_arg = pytz.timezone('America/Argentina/Buenos_Aires')
 
 if 'signals' not in st.session_state: st.session_state.signals = {}
 if 'hist_cerrado' not in st.session_state: st.session_state.hist_cerrado = []
 
-def get_market_data():
+def get_data():
     try:
         tickers = exchange.fetch_tickers()
-        df = pd.DataFrame.from_dict(tickers, orient='index')
-        # Filtro de potencial (Volumen + Cambio %)
-        df['score'] = (df['percentage'].fillna(0) * 2) + (df['quoteVolume'] / 1000000)
-        potential = df[df['symbol'].str.contains('/USDT')].sort_values('score', ascending=False)
+        # Selección de los 4 mejores (VEREM + 3 por volumen/cambio)
+        potential = pd.DataFrame.from_dict(tickers, orient='index')
+        potential['score'] = (potential['percentage'].fillna(0) * 2) + (potential['quoteVolume'] / 1000000)
+        top_coins = potential[potential['symbol'].str.contains('/USDT')].sort_values('score', ascending=False)
         
         selected = ['VEREM/USDT']
-        for s in potential.index:
+        for s in top_coins.index:
             if s != 'VEREM/USDT' and len(selected) < 4: selected.append(s)
             
-        data = []
+        final_data = []
         now = datetime.now(tz_arg)
-
         for sym in selected:
             if sym in tickers:
                 t = tickers[sym]
                 p, s_name = t['last'], sym.replace('/USDT','')
                 
                 if s_name not in st.session_state.signals or now > st.session_state.signals[s_name]['exp']:
-                    # IA DECIDE ESTRATEGIA SEGÚN COMPORTAMIENTO
+                    # IA elige estrategia dinámicamente
+                    strat = "FIBONACCI" if abs(t['percentage'] or 0) > 4 else "IA EXPERTO"
                     if "VEREM" in s_name: strat = "AGRESIVO"
-                    elif abs(t['percentage'] or 0) > 5: strat = "FIBONACCI"
-                    else: strat = "SMART MONEY"
                     
                     st.session_state.signals[s_name] = {
-                        'e': p, 't': p*1.032, 's': p*0.984, 'strat': strat,
+                        'e': p, 't': p*1.03, 's': p*0.985, 'strat': strat,
                         'exp': now+timedelta(minutes=20),
-                        'think': f"Aplicando {strat} por alta volatilidad..."
+                        'think': f"Analizando {strat}..."
                     }
                 
                 sig = st.session_state.signals[s_name]
-                data.append({
+                final_data.append({
                     "n": s_name, "p": p, "e": sig['e'], "t": sig['t'], "s": sig['s'],
                     "strat": sig['strat'], "pnl": ((p - sig['e']) / sig['e']) * 100,
-                    "soc": 75, "ball": 80, "imp": 90, "think": sig['think']
+                    "soc": 80, "ball": 75, "imp": 90, "think": sig['think']
                 })
-        return data
+        return final_data
     except: return []
 
-# --- RENDERIZADO PANTALLA ---
-data = get_market_data()
-ganadas = sum(1 for op in st.session_state.hist_cerrado if float(op['PNL'].replace('%','')) > 0)
-total_op = len(st.session_state.hist_cerrado)
-wr = (ganadas / total_op * 100) if total_op > 0 else 0
+# --- UI ---
+data = get_data()
 
+# Cálculo de Rendimiento Global
+ops = st.session_state.hist_cerrado
+ganadas = sum(1 for o in ops if float(o['PNL'].replace('%','')) > 0)
+perdidas = len(ops) - ganadas
+total = len(ops) if len(ops) > 0 else 1
+p_green = (ganadas / total) * 100
+p_red = 100 - p_green if len(ops) > 0 else 0
+
+# Encabezado con Barra de Rendimiento
 st.markdown(f"""
-    <div class="win-rate-banner">
-        <span style="font-weight:bold; font-size:18px;">🤖 TERMINAL IA ELITE</span>
-        <span style="color: {'#3fb950' if wr >= 50 else '#f85149'}; font-weight:bold;">
-            WIN RATE: {wr:.1f}% | TOTAL: {total_op} OPS
-        </span>
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 20px; font-weight: bold;">🛰️ TERMINAL IA ELITE</span>
+        <div style="width: 40%; text-align: center;">
+            <div style="font-size: 10px; color: #8b949e; margin-bottom: 2px;">RENDIMIENTO TOTAL DE SESIÓN ({len(ops)} OPS)</div>
+            <div class="performance-bar-container">
+                <div class="perf-green" style="width: {p_green}%;"></div>
+                <div class="perf-red" style="width: {p_red}%;"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 9px; font-weight: bold;">
+                <span style="color: #3fb950;">GANANCIAS: {p_green:.1f}%</span>
+                <span style="color: #f85149;">PÉRDIDAS: {p_red:.1f}%</span>
+            </div>
+        </div>
+        <span style="font-size: 14px; font-family: monospace;">{datetime.now(tz_arg).strftime('%H:%M:%S')}</span>
     </div>
     """, unsafe_allow_html=True)
 
-# TOP 4 CARDS
+# Grid de Monedas
 cols = st.columns(4)
 for i, m in enumerate(data):
     with cols[i]:
-        pnl_col = "#3fb950" if m['pnl'] >= 0 else "#f85149"
+        pnl_c = "#3fb950" if m['pnl'] >= 0 else "#f85149"
         st.markdown(f"""
         <div class="card-elite">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span style="background:#238636; font-size:9px; padding:2px 5px; border-radius:3px;">{m['strat']}</span>
-                <span style="color:{pnl_col}; font-size:12px; font-weight:bold;">{m['pnl']:.2f}%</span>
+            <div class="symbol-header">
+                <span class="symbol-name">{m['n']}</span>
+                <span class="strat-badge">{m['strat']}</span>
             </div>
-            <div style="text-align:center; margin:10px 0;">
-                <div class="symbol-name">{m['n']}</div>
-                <div class="price-val">${m['p']}</div>
+            <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                <span style="color: #58a6ff; font-size: 16px; font-weight: bold;">${m['p']}</span>
+                <span style="color: {pnl_c}; font-size: 11px; font-weight: bold;">{m['pnl']:.2f}%</span>
             </div>
             <div class="exec-grid">
                 <div><span class="val-label">ENTRADA</span><br><span class="val-num">{m['e']:.2f}</span></div>
                 <div><span class="val-label">TARGET</span><br><span class="val-num" style="color:#3fb950;">{m['t']:.2f}</span></div>
                 <div><span class="val-label">STOP</span><br><span class="val-num" style="color:#f85149;">{m['s']:.2f}</span></div>
             </div>
-            <div class="bar-container">
-                <div class="bar-label">SOCIAL / BALLENAS / IMPULSO</div>
+            <div class="micro-bar-box">
+                <div class="micro-label"><span>SOCIAL</span><span>{m['soc']}%</span></div>
+                <div class="micro-label" style="margin-top: 8px;"><span>BALLENAS</span><span>{m['ball']}%</span></div>
+                <div class="micro-label" style="margin-top: 8px;"><span>IMPULSO</span><span>{m['imp']}%</span></div>
             </div>
         </div>
         """, unsafe_allow_html=True)
+        # Barras de progreso ultra-delgadas debajo de cada etiqueta
         st.progress(m['soc']/100)
         st.progress(m['ball']/100)
         st.progress(m['imp']/100)
-        st.markdown(f'<div class="ia-think">🧠 {m["think"]}</div>', unsafe_allow_html=True)
 
-# HISTORIAL INTEGRADO (ABRAZA EL FINAL DE LA PANTALLA)
-st.markdown("<div class='table-container'>", unsafe_allow_html=True)
-st.markdown("<span style='font-size:12px; color:#8b949e;'>📜 HISTORIAL DE APRENDIZAJE (ÚLTIMAS 10)</span>", unsafe_allow_html=True)
+# Historial Final
+st.markdown("<div class='table-section'>", unsafe_allow_html=True)
+st.markdown("<span style='font-size: 12px; font-weight: bold; color: #8b949e;'>📜 HISTORIAL DE OPERACIONES (ÚLTIMAS 10)</span>", unsafe_allow_html=True)
 if st.session_state.hist_cerrado:
-    st.dataframe(pd.DataFrame(st.session_state.hist_cerrado).head(10), use_container_width=True)
+    st.table(pd.DataFrame(st.session_state.hist_cerrado).head(10))
 else:
-    st.write("Analizando ciclos... El historial aparecerá aquí.")
+    st.write("Calculando ciclos... Las operaciones aparecerán aquí en breve.")
 st.markdown("</div>", unsafe_allow_html=True)
