@@ -8,68 +8,65 @@ import pytz
 from streamlit_autorefresh import st_autorefresh
 st_autorefresh(interval=10000, key="datarefresh")
 
-st.set_page_config(page_title="IA MEXC PRO", layout="wide")
+# Configuración de página para aprovechar todo el ancho de la TV
+st.set_page_config(page_title="IA MEXC TERMINAL", layout="wide", initial_sidebar_state="collapsed")
 
-# --- CSS PROFESIONAL ---
+# --- CSS ESPECIAL PARA TV (FONDO NEGRO ABSOLUTO Y GRILLA DENSA) ---
 st.markdown("""
     <style>
-    .main { background-color: #0b0e14; }
-    [data-testid="column"] { width: 49% !important; flex: 1 1 49% !important; min-width: 49% !important; }
-    
-    .card-pro { 
-        background-color: #161b22; 
-        border: 1px solid #30363d; 
-        padding: 8px; 
-        margin-bottom: 8px; 
-        border-radius: 8px;
+    /* Fondo Negro Absoluto en toda la app */
+    .main, .block-container, stApp { 
+        background-color: #000000 !important; 
     }
     
+    /* Forzar 4 o 5 columnas en pantallas grandes */
+    [data-testid="column"] { 
+        min-width: 200px !important; 
+        flex: 1 1 18% !important; 
+    }
+    
+    .card-pro { 
+        background-color: #0d1117; 
+        border: 1px solid #1f2328; 
+        padding: 6px; 
+        margin-bottom: 5px; 
+        border-radius: 4px;
+    }
+    
+    /* Números y Textos optimizados para TV */
+    .price-main { color: #58a6ff; font-size: 14px !important; font-weight: bold; font-family: monospace; }
     .exec-row { 
         display: flex; 
         justify-content: space-between; 
-        background: #0d1117; 
-        padding: 6px 4px; 
-        border-radius: 4px; 
-        margin: 5px 0px;
-        border: 1px solid #21262d;
+        background: #000000; 
+        padding: 4px; 
+        border-radius: 3px; 
+        margin: 4px 0px;
+        border: 1px solid #30363d;
     }
-    
     .val-unit { text-align: center; flex: 1; }
     .val-label { font-size: 8px !important; color: #8b949e; display: block; }
-    .val-e { color: #ffffff; font-size: 13px !important; font-weight: bold; }
-    .val-t { color: #3fb950; font-size: 13px !important; font-weight: bold; }
-    .val-s { color: #f85149; font-size: 13px !important; font-weight: bold; }
+    .val-e { color: #ffffff; font-size: 12px !important; font-weight: bold; }
+    .val-t { color: #3fb950; font-size: 12px !important; font-weight: bold; }
+    .val-s { color: #f85149; font-size: 12px !important; font-weight: bold; }
     
-    .strat-tag {
-        font-size: 9px !important;
-        background: #238636;
-        color: white;
-        padding: 2px 5px;
-        border-radius: 3px;
-        font-weight: bold;
-        text-transform: uppercase;
-    }
-    
-    .label-bar { font-size: 8px !important; color: #8b949e; margin-bottom: -15px; margin-top: 5px; }
+    .strat-tag { font-size: 8px !important; background: #238636; color: white; padding: 1px 4px; border-radius: 2px; }
+    .label-bar { font-size: 7px !important; color: #8b949e; margin-bottom: -16px; margin-top: 2px; }
     .stProgress > div > div > div > div { height: 2px !important; }
+    
+    /* Historial compacto */
+    .stTable { font-size: 10px !important; background-color: #000000 !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- LÓGICA DE INTELIGENCIA ---
+# --- LÓGICA IA ---
 exchange = ccxt.mexc()
 tz_arg = pytz.timezone('America/Argentina/Buenos_Aires')
 
 if 'signals' not in st.session_state: st.session_state.signals = {}
 if 'hist_cerrado' not in st.session_state: st.session_state.hist_cerrado = []
 
-def motor_ia_estrategia(sym, ch, pnl_reciente):
-    # Lógica de aprendizaje: si hubo pérdidas, ser más conservador
-    if "VEREM" in sym: return "AGRESIVO"
-    if abs(ch) > 8: return "ESTRATEGIA NUEVA" # IA detecta anomalía y crea estrategia
-    if ch > 2: return "BALLENAS"
-    return "EXPERTO"
-
-def get_pro_data():
+def get_data():
     try:
         tickers = exchange.fetch_tickers()
         df = pd.DataFrame.from_dict(tickers, orient='index')
@@ -87,63 +84,45 @@ def get_pro_data():
                 s_name = sym.replace('/USDT', '')
                 
                 if s_name not in st.session_state.signals or now > st.session_state.signals[s_name]['exp']:
-                    strat = motor_ia_estrategia(s_name, ch, 0)
-                    st.session_state.signals[s_name] = {
-                        'e': p, 't': p * (1.04 if strat == "AGRESIVO" else 1.025),
-                        's': p * 0.985, 'strat': strat, 'exp': now + timedelta(minutes=20)
-                    }
+                    if s_name in st.session_state.signals:
+                        old = st.session_state.signals[s_name]
+                        pnl_f = ((p - old['e']) / old['e']) * 100
+                        st.session_state.hist_cerrado.insert(0, {"H": now.strftime("%H:%M"), "M": s_name, "PNL": f"{pnl_f:.2f}%", "ST": old['strat']})
+                    
+                    strat = "AGRESIVO" if "VEREM" in s_name else "BALLENAS"
+                    st.session_state.signals[s_name] = {'e': p, 't': p*1.025, 's': p*0.985, 'strat': strat, 'exp': now+timedelta(minutes=20)}
                 
                 sig = st.session_state.signals[s_name]
-                pnl = ((p - sig['e']) / sig['e']) * 100
-
                 current_data.append({
                     "n": s_name, "p": p, "e": sig['e'], "t": sig['t'], "s": sig['s'],
-                    "strat": sig['strat'], "pnl": pnl, "soc": min(max(80 + (ch*1.5), 20), 98),
-                    "ball": 70, "imp": min(max(ch+50, 10), 95)
+                    "strat": sig['strat'], "pnl": ((p - sig['e']) / sig['e']) * 100,
+                    "soc": min(max(80 + (ch*1.5), 20), 98), "ball": 70, "imp": min(max(ch+50, 10), 95)
                 })
         return current_data
     except: return []
 
-# --- INTERFAZ ---
-st.markdown(f"### 🤖 MEXC IA | {datetime.now(tz_arg).strftime('%H:%M:%S')} ARG")
+# --- INTERFAZ TV ---
+st.markdown(f"<h3 style='color:white; margin-top:-30px;'>🤖 IA TERMINAL | {datetime.now(tz_arg).strftime('%H:%M')} ARG</h3>", unsafe_allow_html=True)
 
-data = get_pro_data()
+data = get_data()
 
-# 🏆 MONEDA MÁS SUGERIDA
-if data:
-    top = max(data, key=lambda x: x['imp'])
-    st.markdown(f"""
-    <div style="background: linear-gradient(90deg, #1f6feb, #0d1117); padding: 12px; border-radius: 8px; border: 1px solid #58a6ff; margin-bottom: 10px;">
-        <span class="strat-tag">{top['strat']}</span>
-        <div style="display: flex; justify-content: space-between; margin-top: 5px;">
-            <b style="font-size: 20px; color: white;">{top['n']}</b>
-            <b style="font-size: 20px; color: #58a6ff;">${top['p']}</b>
-        </div>
-        <div class="exec-row">
-            <div class="val-unit"><span class="val-label">E</span><span class="val-e">{top['e']:.4f}</span></div>
-            <div class="val-unit"><span class="val-label">T</span><span class="val-t">{top['t']:.4f}</span></div>
-            <div class="val-unit"><span class="val-label">S</span><span class="val-s">{top['s']:.4f}</span></div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-# 📱 GRILLA 2 COLUMNAS
-cols = st.columns(2)
+# GRILLA DE 5 COLUMNAS PARA TV
+cols = st.columns(5)
 for idx, m in enumerate(data):
-    with cols[idx % 2]:
-        pnl_col = "#3fb950" if m['pnl'] >= 0 else "#f85149"
+    with cols[idx % 5]:
+        pnl_c = "#3fb950" if m['pnl'] >= 0 else "#f85149"
         st.markdown(f"""
         <div class="card-pro">
-            <span class="strat-tag" style="background: #30363d;">{m['strat']}</span>
-            <div style="display: flex; justify-content: space-between; margin-top: 4px;">
-                <b style="font-size: 13px; color: white;">{m['n']}</b>
-                <b style="font-size: 13px; color: #58a6ff;">${m['p']}</b>
+            <span class="strat-tag">{m['strat']}</span>
+            <div style="display: flex; justify-content: space-between; margin-top: 2px;">
+                <b style="font-size: 12px; color: white;">{m['n']}</b>
+                <b class="price-main">${m['p']}</b>
             </div>
-            <div style="font-size: 11px; color: {pnl_col}; font-weight: bold;">PNL: {m['pnl']:.2f}%</div>
+            <div style="font-size: 10px; color: {pnl_c}; font-weight: bold;">PNL: {m['pnl']:.2f}%</div>
             <div class="exec-row">
-                <div class="val-unit"><span class="val-label">E</span><span class="val-e">{m['e']:.3f}</span></div>
-                <div class="val-unit"><span class="val-label">T</span><span class="val-t">{m['t']:.3f}</span></div>
-                <div class="val-unit"><span class="val-label">S</span><span class="val-s">{m['s']:.3f}</span></div>
+                <div class="val-unit"><span class="val-label">E</span><span class="val-e">{m['e']:.2f}</span></div>
+                <div class="val-unit"><span class="val-label">T</span><span class="val-t">{m['t']:.2f}</span></div>
+                <div class="val-unit"><span class="val-label">S</span><span class="val-s">{m['s']:.2f}</span></div>
             </div>
             <div class="label-bar">IA SOCIAL</div>
         </div>
@@ -155,6 +134,8 @@ for idx, m in enumerate(data):
         st.progress(m['imp']/100)
 
 st.write("---")
-st.subheader("📜 HISTORIAL DE APRENDIZAJE")
+
+# HISTORIAL EN TV (Más compacto)
 if st.session_state.hist_cerrado:
-    st.table(pd.DataFrame(st.session_state.hist_cerrado).head(10))
+    st.markdown("<span style='color:gray; font-size:12px;'>📜 ÚLTIMOS CIERRES</span>", unsafe_allow_html=True)
+    st.dataframe(pd.DataFrame(st.session_state.hist_cerrado).head(6), use_container_width=True)
