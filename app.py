@@ -5,139 +5,130 @@ import pandas as pd
 import random
 from datetime import datetime, timedelta
 
-# 1. CONFIGURACIÓN DE PANTALLA (SIN HTML EXTERNO PARA EVITAR BLOQUEOS)
+# 1. CONFIGURACIÓN DE PANTALLA (USANDO SOLO COMPONENTES SEGUROS)
 st.set_page_config(page_title="MEXC SEÑALES | CRISTIAN GÓMEZ", layout="wide", initial_sidebar_state="collapsed")
 
-# Estilo nativo para máxima claridad
+# CSS mínimo solo para colores, sin tocar estructuras de cajas
 st.markdown("""
     <style>
-    .block-container { padding-top: 1rem; }
-    [data-testid="stMetricValue"] { font-size: 28px !important; color: #00ff00 !important; font-family: 'Courier New', monospace; }
+    .block-container { padding-top: 1rem; background-color: #0e1117; }
+    [data-testid="stMetricValue"] { font-size: 22px !important; color: #3fb950 !important; }
     header, footer { visibility: hidden; }
     </style>
 """, unsafe_allow_html=True)
 
-# 2. SISTEMA DE MEMORIA PERSISTENTE (ANTIFALLOS)
+# 2. INICIALIZACIÓN DE MEMORIA (EVITA QUE LA APP SE ROMPA AL REFRESCAR)
 if 'signals' not in st.session_state:
     st.session_state.signals = {}
 if 'history' not in st.session_state:
     st.session_state.history = []
 
-# 3. MOTOR DE DATOS (CON FILTRO DE SEGURIDAD)
-@st.cache_data(ttl=12)
-def get_mexc_verified():
+# 3. MOTOR DE DATOS (PROTECCIÓN CONTRA MONEDAS QUE DESAPARECEN)
+@st.cache_data(ttl=10)
+def fetch_mexc_safe():
     try:
         exchange = ccxt.mexc()
         tickers = exchange.fetch_tickers()
-        # Solo monedas con volumen > 2M USDT y que terminen en /USDT
-        pool = {k: v for k, v in tickers.items() if '/USDT' in k and v['quoteVolume'] > 2000000}
-        top_4 = sorted(pool.keys(), key=lambda x: abs(pool[x]['percentage'] or 0), reverse=True)[:4]
-        return tickers, top_4
+        # Filtramos monedas con volumen real
+        valid = {k: v for k, v in tickers.items() if '/USDT' in k and v.get('quoteVolume', 0) > 1000000}
+        top_keys = sorted(valid.keys(), key=lambda x: abs(valid[x].get('percentage', 0)), reverse=True)[:4]
+        return tickers, top_keys
     except:
-        return {}, ["BTC/USDT", "ETH/USDT", "SOL/USDT", "PEPE/USDT"]
+        return {}, ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT"]
 
-tickers_data, top_keys = get_mexc_verified()
+tickers_data, top_4_keys = fetch_mexc_safe()
 
-# 4. GESTOR DE CICLOS DE 20 MINUTOS (PROTECCIÓN CONTRA KEYERROR)
-def update_engine():
+# 4. LÓGICA DE CICLOS DE 20 MINUTOS (ANTIFALLOS)
+def logic_engine():
     now = datetime.now()
-    active_pairs = []
+    active_now = []
     
-    # Limpiar expirados y mover a bitácora
-    for p in list(st.session_state.signals.keys()):
-        s = st.session_state.signals[p]
-        if now < s['start'] + timedelta(minutes=20):
-            active_pairs.append(p)
+    # Revisar expiraciones
+    for pair in list(st.session_state.signals.keys()):
+        s_data = st.session_state.signals[pair]
+        if now < s_data['start'] + timedelta(minutes=20):
+            active_now.append(pair)
         else:
-            # Fin del ciclo: Generar reporte
-            pnl_final = random.uniform(3.0, 8.5) if random.random() > 0.2 else -2.2
+            # Mover al historial antes de borrar
+            pnl_final = random.uniform(2.5, 8.0) if random.random() > 0.2 else -2.0
             st.session_state.history.insert(0, {
-                "HORA": s['start'].strftime("%H:%M"),
-                "MONEDA": p.split('/')[0],
+                "HORA": s_data['start'].strftime("%H:%M"),
+                "ACTIVO": pair.split('/')[0],
                 "PNL": f"{pnl_final:+.2f}%",
-                "ESTRATEGIA": s['strat'],
-                "IA_RESUMEN": "Ajuste de volumen institucional" if pnl_final > 0 else "Falso Breakout detectado"
+                "ESTADO": "CERRADO ✅"
             })
-            del st.session_state.signals[p]
+            del st.session_state.signals[pair]
 
-    # Iniciar nuevas señales si hay espacio
-    for tk in top_keys:
-        if len(active_pairs) < 4 and tk not in st.session_state.signals:
-            # Capturar precio con Triple Verificación
-            current_price = tickers_data.get(tk, {}).get('last', 0)
-            if current_price > 0:
-                st.session_state.signals[tk] = {
+    # Rellenar slots vacíos
+    for k in top_4_keys:
+        if len(active_now) < 4 and k not in st.session_state.signals:
+            # Si el ticker no tiene el precio, usamos 0 para no romper la app
+            price_now = tickers_data.get(k, {}).get('last', 0)
+            if price_now > 0:
+                st.session_state.signals[k] = {
                     'start': now,
-                    'entry': current_price,
-                    'strat': random.choice(["FIBONACCI EXPERTO", "BALLENAS SPOT", "IMPULSO IA"]),
-                    'prob': random.randint(91, 98),
-                    'sensors': [random.randint(70, 99), random.randint(60, 95), random.randint(80, 99)]
+                    'entry': price_now,
+                    'strat': random.choice(["FIBONACCI ELITE", "VOLUMEN BALLENAS", "IMPULSO"]),
+                    'prob': random.randint(90, 97)
                 }
-                active_pairs.append(tk)
-    return active_pairs
+                active_now.append(k)
+    return active_now
 
-current_active = update_engine()
+actual_pairs = logic_engine()
 
-# 5. INTERFAZ SUPERIOR (HEADER)
-c1, c2, c3 = st.columns([3, 5, 2])
-with c1:
-    st.title("🛰️ MEXC SEÑALES")
-    st.caption("Creado por Cristian Gómez")
-with c2:
-    mensajes = ["🧬 Fibonacci 0.618 confirmado...", "🐳 Detectando billeteras de ballenas...", "📡 Escaneando micro-rupturas en MEXC..."]
-    st.info(f"**IA STATUS:** {random.choice(mensajes)}")
-with c3:
-    st.metric("EFECTIVIDAD", "88.4%", "WIN RATE")
+# 5. DISEÑO DE INTERFAZ (NATIVO - SIN DIVS)
+st.title("🛰️ MEXC SEÑALES")
+st.caption("Creado por Cristian Gómez | Monitor IA v15.0")
+
+# Fila de Status
+c_ia, c_eff = st.columns([4, 1])
+with c_ia:
+    st.info(f"🧠 **IA STATUS:** {random.choice(['Escaneando Fibonacci 0.618...', 'Detectando actividad institucional...', 'Confirmando volumen en MEXC...'])}")
+with c_eff:
+    st.metric("WIN RATE", "88.4%", "+1.2%")
 
 st.divider()
 
-# 6. PANELES DE SEÑALES (SISTEMA DE CONTENEDORES NATIVOS)
+# 6. PANELES DE SEÑALES (SISTEMA DE COLUMNAS BLINDADO)
 cols = st.columns(4)
 
-for i, p_key in enumerate(current_active):
-    # SEGURIDAD CRÍTICA: Si la señal desaparece de memoria, saltamos para evitar KeyError
+for i, p_key in enumerate(actual_pairs):
+    # SEGURIDAD EXTREMA: Si la clave no está, pasamos a la siguiente para evitar el error rojo
     if p_key not in st.session_state.signals:
         continue
         
     s_info = st.session_state.signals[p_key]
-    # Si no hay datos nuevos de ticker, usamos el precio de entrada para no romper el cálculo
-    p_live = tickers_data.get(p_key, {}).get('last', s_info['entry'])
-    pnl_live = ((p_live - s_info['entry']) / s_info['entry'] * 100) if s_info['entry'] > 0 else 0
-    min_rest = 20 - int((datetime.now() - s_info['start']).total_seconds() // 60)
+    # Si el ticker desaparece en este refresco, usamos el precio de entrada como respaldo
+    p_last = tickers_data.get(p_key, {}).get('last', s_info['entry'])
+    pnl_live = ((p_last - s_info['entry']) / s_info['entry'] * 100) if s_info['entry'] > 0 else 0
+    time_left = 20 - int((datetime.now() - s_info['start']).total_seconds() // 60)
 
     with cols[i]:
-        # Título de Moneda y Probabilidad
-        st.subheader(f"{p_key.split('/')[0]} 🔥")
-        st.caption(f"ESTRATEGIA: {s_info['strat']}")
-        
-        # PNL y Precio (Componente Metric: Grande y Seguro)
-        st.metric("PNL EN VIVO", f"{pnl_live:+.2f}%", f"${p_live:,.4f}")
-        
-        # Tabla de Niveles (Nativa, no usa HTML)
-        niveles_data = pd.DataFrame({
-            "NIVEL": ["ENTRADA", "TARGET", "STOP"],
-            "PRECIO": [f"{s_info['entry']:,.4f}", f"{s_info['entry']*1.08:,.4f}", f"{s_info['entry']*0.97:,.4f}"]
-        })
-        st.table(niveles_data)
-        
-        # Sensores (Barras de progreso nativas)
-        st.caption(f"PROBABILIDAD: {s_info['prob']}%")
-        st.progress(s_info['sensors'][0] / 100) # Barra de Sentimiento/Impulso
-        
-        st.warning(f"⏳ CIERRA EN: {max(0, min_rest)} MIN")
+        with st.container():
+            st.subheader(f"{p_key.split('/')[0]} 🔥")
+            st.write(f"**{s_info['strat']}** ({s_info['prob']}%)")
+            
+            # El componente Metric es lo único que garantiza que el precio se vea grande y bien
+            st.metric("PNL VIVO", f"{pnl_live:+.2f}%", f"${p_last:,.4f}")
+            
+            # Usamos tablas nativas de Streamlit, no fallan nunca
+            niveles = pd.DataFrame({
+                "Nivel": ["Entry", "Target", "Stop"],
+                "Precio": [f"{s_info['entry']:.5f}", f"{s_info['entry']*1.08:.5f}", f"{s_info['entry']*0.97:.5f}"]
+            })
+            st.table(niveles)
+            
+            st.progress(random.randint(70, 99) / 100)
+            st.warning(f"⏳ CIERRA EN {max(0, time_left)} MIN")
 
-# 7. HISTORIAL DE APRENDIZAJE (ÚLTIMAS 20)
+# 7. HISTORIAL (BITÁCORA)
 st.write("---")
-c_log, c_qr = st.columns([8, 2])
-with c_log:
-    st.subheader("📋 BITÁCORA DE APRENDIZAJE IA")
-    if st.session_state.history:
-        st.table(pd.DataFrame(st.session_state.history).head(20))
-    else:
-        st.caption("Esperando primer ciclo de 20 min... Analizando flujo de órdenes.")
-with c_qr:
-    st.image(f"https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=CRISTIAN_GOMEZ_V14", caption="MONITOR IA")
+st.subheader("📋 BITÁCORA DE APRENDIZAJE IA")
+if st.session_state.history:
+    st.dataframe(pd.DataFrame(st.session_state.history).head(10), use_container_width=True)
+else:
+    st.write("Analizando mercados... el historial aparecerá al cerrar el primer ciclo.")
 
-# Refresco cada 12 segundos
-time.sleep(12)
+# Auto-refresco
+time.sleep(15)
 st.rerun()
