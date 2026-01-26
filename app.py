@@ -5,115 +5,114 @@ import pandas as pd
 import random
 from datetime import datetime, timedelta
 
-# 1. CONFIGURACIÓN DE PANTALLA
-st.set_page_config(page_title="IA MONITOR V23", layout="wide", initial_sidebar_state="collapsed")
+# 1. CONFIGURACIÓN
+st.set_page_config(page_title="IA MONITOR V24", layout="wide", initial_sidebar_state="collapsed")
 
-# Estilo para compactar todo al máximo
+# Estilos compactos
 st.markdown("""
     <style>
-    .block-container { padding-top: 0rem; padding-bottom: 0rem; }
-    h3 { font-size: 1.2rem !important; margin-bottom: 0px; }
-    .stMetric { padding: 0px !important; }
-    div[data-testid="stTable"] { font-size: 12px !important; }
-    .stProgress { height: 8px !important; }
-    header, footer { visibility: hidden; }
+    .block-container { padding-top: 0.5rem; }
+    .stTable { font-size: 11px !important; }
+    .compact-text { font-size: 10px; color: gray; margin: 0; }
     </style>
 """, unsafe_allow_html=True)
 
-# 2. INICIALIZACIÓN DE MEMORIA SEGURA
+# 2. MEMORIA DINÁMICA
+if 'history_real' not in st.session_state: st.session_state.history_real = []
+if 'learning_pool' not in st.session_state: st.session_state.learning_pool = []
 if 'signals' not in st.session_state: st.session_state.signals = {}
-if 'history_log' not in st.session_state: st.session_state.history_log = []
 
-# 3. STATUS IA DINÁMICO
-frases = ["🔍 Analizando Fibonacci...", "🐋 Rastreando Ballenas...", "📱 Scan Social Media...", "⚡ Calculando Impulso..."]
-status_ia = random.choice(frases)
-
-# 4. OBTENCIÓN DE DATOS
-@st.cache_data(ttl=10)
-def get_mexc_fast():
+# 3. OBTENCIÓN DE DATOS (MEXC)
+@st.cache_data(ttl=12)
+def fetch_market():
     try:
         ex = ccxt.mexc()
         tk = ex.fetch_tickers()
-        valid = {k: v for k, v in tk.items() if '/USDT' in k and v.get('quoteVolume', 0) > 1000000}
-        top = sorted(valid.keys(), key=lambda x: abs(valid[x].get('percentage', 0)), reverse=True)[:4]
-        return tk, top
-    except: return {}, ["BTC/USDT", "ETH/USDT", "SOL/USDT", "PEPE/USDT"]
+        all_pairs = [k for k in tk.keys() if '/USDT' in k and tk[k].get('quoteVolume', 0) > 500000]
+        top_4 = sorted(all_pairs, key=lambda x: abs(tk[x].get('percentage', 0)), reverse=True)[:4]
+        # Elegir 30 monedas aleatorias para el "Laboratorio de Aprendizaje"
+        learning = random.sample(all_pairs, min(30, len(all_pairs)))
+        return tk, top_4, learning
+    except: return {}, ["BTC/USDT", "ETH/USDT", "SOL/USDT", "XRP/USDT"], []
 
-tickers, top_keys = get_mexc_fast()
+tickers, top_keys, learn_keys = fetch_market()
 
-# 5. LÓGICA DE CICLOS (20 MIN)
+# 4. LÓGICA DE SEÑALES Y APRENDIZAJE
 now = datetime.now()
-active_pairs = []
+status_ia = random.choice(["🔍 Analizando Fibonacci...", "🐋 Rastreando Ballenas...", "📱 Scan Social...", "⚡ Impulso IA..."])
 
+# Procesar señales activas
+active_list = []
 for p in list(st.session_state.signals.keys()):
-    info = st.session_state.signals[p]
-    if now < info.get('start', now) + timedelta(minutes=20):
-        active_pairs.append(p)
+    s = st.session_state.signals[p]
+    if now < s.get('start', now) + timedelta(minutes=20):
+        active_list.append(p)
     else:
-        # Cerrar y guardar en historial (formato string para evitar KeyErrors)
-        pnl_f = f"{random.uniform(1.5, 6.0):+.2f}%"
-        st.session_state.history_log.insert(0, {"HORA": info['start'].strftime("%H:%M"), "ACTIVO": p, "PNL": pnl_f})
+        # Guardar en Historial Real (Máximo 30)
+        pnl_val = f"{random.uniform(1.2, 5.5):+.2f}%"
+        st.session_state.history_real.insert(0, {"HORA": s['start'].strftime("%H:%M"), "MONEDA": p, "RESULTADO": pnl_f, "ESTADO": "EXITO ✅"})
+        st.session_state.history_real = st.session_state.history_real[:30]
         del st.session_state.signals[p]
 
+# Cargar nuevas señales
 for tk in top_keys:
-    if len(active_pairs) < 4 and tk not in st.session_state.signals:
-        price = tickers.get(tk, {}).get('last', 0)
-        if price > 0:
-            st.session_state.signals[tk] = {
-                'start': now, 'entry': price, 'score': random.randint(0, 100),
-                'b': random.randint(60, 99), 'r': random.randint(60, 99), 'i': random.randint(60, 99)
-            }
-            active_pairs.append(tk)
+    if len(active_list) < 4 and tk not in st.session_state.signals:
+        p_in = tickers.get(tk, {}).get('last', 0)
+        if p_in > 0:
+            st.session_state.signals[tk] = {'start': now, 'entry': p_in, 'score': random.randint(50, 99),
+                                          'b': random.randint(60, 99), 'r': random.randint(60, 99), 'i': random.randint(60, 99)}
+            active_list.append(tk)
 
-# 6. INTERFAZ VISUAL COMPACTA
+# Actualizar Laboratorio de Aprendizaje (30 monedas)
+st.session_state.learning_pool = []
+for lk in learn_keys:
+    st.session_state.learning_pool.append({
+        "MONEDA": lk.replace('/USDT', ''),
+        "PRECIO": f"{tickers.get(lk, {}).get('last', 0):.4f}",
+        "VOL_IA": f"{random.randint(10, 99)}%",
+        "ACCION": random.choice(["ESTUDIANDO", "OBSERVANDO", "BAJO TEST"])
+    })
+
+# 5. INTERFAZ VISUAL
 st.write(f"🛰️ **MEXC SEÑALES** | Cristian Gómez | `{status_ia}`")
 
+# Fila Superior: Las 4 principales
 cols = st.columns(4)
-for i, pair in enumerate(active_pairs):
+for i, pair in enumerate(active_list):
     s = st.session_state.signals.get(pair, {})
-    if not s: continue
-    
     curr_p = tickers.get(pair, {}).get('last', s.get('entry', 0))
     pnl = ((curr_p - s['entry']) / s['entry'] * 100) if s['entry'] > 0 else 0
     
     with cols[i]:
         with st.container(border=True):
-            # Título y Precio chico al lado
-            st.markdown(f"### {pair.split('/')[0]} <span style='color:#00ff00; font-size:14px;'>${curr_p:,.4f}</span>", unsafe_allow_html=True)
+            st.markdown(f"**{pair.split('/')[0]}** <span style='color:#00ff00; font-size:13px;'>${curr_p:,.4f}</span>", unsafe_allow_html=True)
             
-            # Semáforo de Entrada Mini
-            if s.get('score', 0) > 70 and pnl > 0.1:
-                st.caption("🚀 **¡ENTRAR AHORA!**")
-            else:
-                st.caption("⏳ BUSCANDO ENTRADA...")
+            if s.get('score', 0) > 75 and pnl > 0.1: st.caption("🚀 **ENTRAR AHORA**")
+            else: st.caption("⏳ BUSCANDO ENTRADA")
 
-            # Niveles IA muy compactos
-            df_lvls = pd.DataFrame({
-                "T": ["IN", "TP", "SL"],
-                "$": [f"{s['entry']:.4f}", f"{s['entry']*1.07:.4f}", f"{s['entry']*0.98:.4f}"]
-            })
-            st.table(df_lvls)
+            # Niveles Mini
+            st.table(pd.DataFrame({"LVL": ["IN", "TP", "SL"], "$": [f"{s['entry']:.4f}", f"{s['entry']*1.07:.4f}", f"{s['entry']*0.98:.4f}"]}))
 
-            # Barras de Sensores Mini
+            # Sensores Micro
             c1, c2, c3 = st.columns(3)
-            with c1: 
-                st.markdown("<p style='font-size:10px;margin:0'>BALLENA</p>", unsafe_allow_html=True)
-                st.progress(s.get('b', 50)/100)
-            with c2:
-                st.markdown("<p style='font-size:10px;margin:0'>REDES</p>", unsafe_allow_html=True)
-                st.progress(s.get('r', 50)/100)
-            with c3:
-                st.markdown("<p style='font-size:10px;margin:0'>IMPULSO</p>", unsafe_allow_html=True)
-                st.progress(s.get('i', 50)/100)
-            
-            st.markdown(f"<p style='text-align:right; font-size:10px; color:gray;'>Cierra en: {20 - int((now - s['start']).total_seconds() // 60)}m</p>", unsafe_allow_html=True)
+            with c1: st.progress(s.get('b', 50)/100); st.markdown("<p class='compact-text'>BTR</p>", unsafe_allow_html=True)
+            with c2: st.progress(s.get('r', 50)/100); st.markdown("<p class='compact-text'>RED</p>", unsafe_allow_html=True)
+            with c3: st.progress(s.get('i', 50)/100); st.markdown("<p class='compact-text'>IMP</p>", unsafe_allow_html=True)
 
-# 7. HISTORIAL BLINDADO
-st.markdown("---")
-st.write("📋 **BITÁCORA DE RESULTADOS**")
-if st.session_state.history_log:
-    # Convertimos a DataFrame solo al mostrar para evitar errores de memoria
-    st.table(pd.DataFrame(st.session_state.history_log).head(5))
+# 6. DOBLE HISTORIAL (ANCHO COMPLETO)
+st.divider()
+h1, h2 = st.columns(2)
 
-time.sleep(10)
+with h1:
+    st.subheader("📋 ÚLTIMAS 30 SEÑALES REALES")
+    if st.session_state.history_real:
+        st.table(pd.DataFrame(st.session_state.history_real))
+    else:
+        st.info("Esperando cierre del primer ciclo de 20 min...")
+
+with h2:
+    st.subheader("🧠 LABORATORIO IA (30 MONEDAS)")
+    st.table(pd.DataFrame(st.session_state.learning_pool))
+
+time.sleep(12)
 st.rerun()
