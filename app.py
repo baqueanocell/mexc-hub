@@ -2,47 +2,51 @@ import streamlit as st
 import ccxt
 import time
 
-st.set_page_config(page_title="IA TERMINAL V4.4", layout="wide")
+st.set_page_config(page_title="IA TERMINAL V4.5", layout="wide")
 
-# --- CSS ULTRA COMPACTO ---
+# --- CSS DE ALTA PRECISIÓN ---
 st.markdown("""
     <style>
     .stApp { background-color: #000000 !important; }
     header, footer {visibility: hidden;}
-    .card-base { background: #0d1117; border: 1px solid #30363d; padding: 8px; border-radius: 8px; border-top: 3px solid #1f6feb; }
-    /* Barras mucho más chicas */
-    .sensor-bg { background: #1a1a1a; height: 4px; border-radius: 2px; margin-bottom: 4px; overflow: hidden; }
-    .sensor-f { height: 100%; }
-    .label-s { font-size: 8px; color: #666; font-weight: bold; text-transform: uppercase; margin-top: 2px; }
-    /* Grilla de precios de entrada/salida */
-    .exec-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; background: #000; padding: 4px; border-radius: 4px; text-align: center; border: 1px solid #21262d; margin-top: 8px; }
-    .ia-thought { background: #001a00; border-left: 3px solid #00ff00; padding: 8px; color: #00ff00; font-family: monospace; font-size: 12px; margin-bottom: 10px; }
-    .time-tag { background: #1f6feb; color: white; font-size: 9px; padding: 1px 4px; border-radius: 2px; }
+    /* Contenedor principal de la moneda */
+    .card-base { background: #0d1117; border: 1px solid #30363d; padding: 10px; border-radius: 8px; border-top: 3px solid #1f6feb; }
+    /* Barras ultra delgadas para ahorrar espacio */
+    .s-bg { background: #1a1a1a; height: 3px; border-radius: 2px; margin-bottom: 3px; overflow: hidden; }
+    .s-fill { height: 100%; }
+    .s-label { font-size: 8px; color: #555; font-weight: bold; text-transform: uppercase; }
+    /* Caja de Precios de Operación */
+    .price-box { background: #000; border: 1px solid #21262d; border-radius: 4px; padding: 5px; margin-top: 8px; display: flex; justify-content: space-around; text-align: center; }
+    .p-val { font-size: 10px; font-weight: bold; line-height: 1.2; }
+    .p-lbl { font-size: 7px; color: #888; display: block; }
+    /* Pensamiento IA Estilo Matrix */
+    .ia-thought { background: #001a00; border-left: 3px solid #00ff00; padding: 8px; color: #00ff00; font-family: monospace; font-size: 11px; margin-bottom: 10px; border-radius: 0 4px 4px 0; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- LÓGICA DE TIEMPO ---
-if 'init_time' not in st.session_state: st.session_state.init_time = time.time()
-t_act = int((time.time() - st.session_state.init_time) // 60) + 5
+# --- LÓGICA DE DATOS ---
+if 'start_time' not in st.session_state: st.session_state.start_time = time.time()
+t_total = int((time.time() - st.session_state.start_time) // 60) + 5
 
-# --- HEADER Y BARRA ---
-c1, c2 = st.columns([4, 1])
-with c1:
-    st.markdown('<h2 style="color:white;text-align:center;margin:0;font-size:20px;">🛰️ TERMINAL IA ELITE | SEÑALES MEXC</h2>', unsafe_allow_html=True)
-    st.markdown(f'<div style="background:#222;height:8px;border-radius:4px;display:flex;overflow:hidden;margin-top:5px;"><div style="background:#3fb950;width:85%;"></div><div style="background:#f85149;width:15%;"></div></div>', unsafe_allow_html=True)
-with c2:
-    st.markdown(f'<div style="background:white;padding:2px;border-radius:4px;text-align:center;"><img src="https://api.qrserver.com/v1/create-qr-code/?size=50x50&data=MEXC" width="50"></div>', unsafe_allow_html=True)
-
-st.markdown(f'<div class="ia-thought"><b>🧠 PENSAMIENTO IA:</b> Escaneando niveles críticos. Órdenes listas para ejecutar.</div>', unsafe_allow_html=True)
-
-# --- DATOS ---
 ASSETS = {
-    'VEREM': {'in': 128.16, 'tgt': 132.65, 'sl': 125.80, 'n': 85, 'p': 92, 'w': 78, 'm': t_act},
-    'BTC':   {'in': 87746.0, 'tgt': 90817.0, 'sl': 86166.0, 'n': 70, 'p': 45, 'w': 88, 'm': 14},
-    'ETH':   {'in': 2890.72, 'tgt': 2991.90, 'sl': 2838.69, 'n': 60, 'p': 35, 'w': 65, 'm': 52},
-    'SOL':   {'in': 122.37, 'tgt': 126.65, 'sl': 120.17, 'n': 55, 'p': 40, 'w': 50, 'm': 3}
+    'VEREM': {'in': 128.16, 'tgt': 132.65, 'sl': 125.80, 'n': 85, 'p': 92, 'w': 78, 't': t_total},
+    'BTC':   {'in': 87746.0, 'tgt': 90817.0, 'sl': 86166.0, 'n': 70, 'p': 45, 'w': 88, 't': 14},
+    'ETH':   {'in': 2890.72, 'tgt': 2991.90, 'sl': 2838.69, 'n': 60, 'p': 35, 'w': 65, 't': 52},
+    'SOL':   {'in': 122.37, 'tgt': 126.65, 'sl': 120.17, 'n': 55, 'p': 40, 'w': 50, 't': 3}
 }
 
+# --- HEADER ---
+c1, c2 = st.columns([4, 1])
+with c1:
+    st.markdown('<h2 style="color:white;text-align:center;margin:0;font-size:22px;">🛰️ TERMINAL IA ELITE | PANEL DE SEÑALES</h2>', unsafe_allow_html=True)
+    st.markdown(f'<div style="background:#222;height:6px;border-radius:3px;display:flex;overflow:hidden;margin:5px 0;"><div style="background:#3fb950;width:85%;"></div><div style="background:#f85149;width:15%;"></div></div>', unsafe_allow_html=True)
+with c2:
+    st.markdown(f'<div style="background:white;padding:2px;border-radius:4px;text-align:center;"><img src="https://api.qrserver.com/v1/create-qr-code/?size=55x55&data=MEXC_SIG" width="55"></div>', unsafe_allow_html=True)
+
+st.markdown(f'<div class="ia-thought"><b>🧠 PENSAMIENTO IA:</b> Escaneando liquidez en MEXC. VEREM en zona de alta convicción. Tiempo activo: {t_total}m.</div>', unsafe_allow_html=True)
+
+# --- GRID DE MONEDAS ---
+cols = st.columns(4)
 prices = {}
 try:
     mexc = ccxt.mexc()
@@ -50,44 +54,46 @@ try:
     for k, v in ticks.items(): prices[k.split('/')[0]] = v['last']
 except: pass
 
-# --- MONEDAS ---
-cols = st.columns(4)
 for i, name in enumerate(['VEREM', 'BTC', 'ETH', 'SOL']):
     d = ASSETS[name]
     cp = prices.get(name, 0.0)
     pnl = ((cp - d['in']) / d['in'] * 100) if cp > 0 else 0.0
     
     with cols[i]:
+        # Título y Precio Principal
         st.markdown(f'''
             <div class="card-base">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <b style="color:white;font-size:15px;">{name}</b>
-                    <span class="time-tag">{d["m"]}M</span>
+                    <b style="color:white;font-size:16px;">{name}</b>
+                    <span style="background:#1f6feb; color:white; font-size:9px; padding:1px 4px; border-radius:2px;">{d["t"]} MIN</span>
                 </div>
                 <div style="display:flex;justify-content:space-between;margin:5px 0;">
-                    <span style="color:#58a6ff;font-size:17px;font-weight:bold;">${cp:,.2f}</span>
-                    <span style="color:{"#3fb950" if pnl >= 0 else "#f85149"};font-size:13px;font-weight:bold;">{pnl:.2f}%</span>
+                    <span style="color:#58a6ff;font-size:18px;font-weight:bold;">${cp:,.2f}</span>
+                    <span style="color:{"#3fb950" if pnl >= 0 else "#f85149"};font-size:14px;font-weight:bold;">{pnl:.2f}%</span>
                 </div>
-                
-                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px;">
-                    <div><div class="label-s">Not</div><div class="sensor-bg"><div class="sensor-f" style="width:{d["n"]}%;background:#1f6feb;"></div></div></div>
-                    <div><div class="label-s">Imp</div><div class="sensor-bg"><div class="sensor-f" style="width:{d["p"]}%;background:#238636;"></div></div></div>
-                    <div><div class="label-s">Ball</div><div class="sensor-bg"><div class="sensor-f" style="width:{d["w"]}%;background:#8957e5;"></div></div></div>
-                </div>
-
-                <div class="exec-grid">
-                    <div style="color:white;font-size:9px;"><span style="color:#888;font-size:7px;">ENTRY</span><br>{d["in"]}</div>
-                    <div style="color:#3fb950;font-size:9px;"><span style="color:#888;font-size:7px;">TARGET</span><br>{d["tgt"]}</div>
-                    <div style="color:#f85149;font-size:9px;"><span style="color:#888;font-size:7px;">STOP</span><br>{d["sl"]}</div>
+        ''', unsafe_allow_html=True)
+        
+        # Sensores (Miniatutizados para no romper el HTML)
+        for label, val, color in [("Noticias", d['n'], "#1f6feb"), ("Impulso", d['p'], "#238636"), ("Whales", d['w'], "#8957e5")]:
+            st.markdown(f'<div class="s-label">{label} {val}%</div><div class="s-bg"><div class="s-fill" style="width:{val}%; background:{color};"></div></div>', unsafe_allow_html=True)
+        
+        # Bloque de Precios IN/TGT/SL (Separado para evitar el error de texto plano)
+        st.markdown(f'''
+                <div class="price-box">
+                    <div style="color:white;"><span class="p-lbl">ENTRY</span><span class="p-val">{d["in"]}</span></div>
+                    <div style="color:#3fb950;"><span class="p-lbl">TARGET</span><span class="p-val">{d["tgt"]}</span></div>
+                    <div style="color:#f85149;"><span class="p-lbl">STOP</span><span class="p-val">{d["sl"]}</span></div>
                 </div>
             </div>
         ''', unsafe_allow_html=True)
 
-# --- HISTORIAL ---
+# --- TABLA DE HISTORIAL ---
+st.markdown('<div style="margin:10px 0 5px 10px; color:#58a6ff; font-weight:bold; font-size:12px;">📋 RESUMEN DE SEÑALES MEXC</div>', unsafe_allow_html=True)
 st.table([
-    {"ACTIVO": "VEREM/USDT", "TIEMPO": f"{t_act} min", "PNL": f"{pnl:.2f}%", "ESTADO": "ENTRY"},
-    {"ACTIVO": "SOL/USDT", "TIEMPO": "3 min", "PNL": "0.15%", "ESTADO": "CONFIRMADO"}
+    {"ACTIVO": "VEREM/USDT", "TIEMPO": f"{t_total} min", "PNL": f"{pnl:.2f}%", "ESTADO": "ACTIVA"},
+    {"ACTIVO": "SOL/USDT", "TIEMPO": "3 min", "PNL": "0.15%", "ESTADO": "ENTRADA"}
 ])
 
+# Refresco cada 15 seg
 time.sleep(15)
 st.rerun()
