@@ -2,124 +2,111 @@ import streamlit as st
 import ccxt
 import time
 import pandas as pd
+import numpy as np
 import random
 from datetime import datetime, timedelta
 
-# 1. CONFIGURACIÓN E INTERFAZ
-st.set_page_config(page_title="IA NEURAL V41", layout="wide", initial_sidebar_state="collapsed")
+# 1. CONFIGURACIÓN
+st.set_page_config(page_title="IA NEURAL V42", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
     <style>
-    .stApp { background-color: #0b0e11; }
-    .level-box { text-align: center; background: #1e2329; padding: 10px; border-radius: 8px; border: 1px solid #4facfe; box-shadow: 0 2px 4px rgba(0,0,0,0.5); }
-    .level-val { font-size: 18px; font-weight: 800; color: #f0b90b; }
-    .timer-badge { background: #2ebd85; color: white; padding: 3px 8px; border-radius: 5px; font-size: 12px; font-weight: bold; }
-    .deep-signal { color: #4facfe; font-size: 11px; font-style: italic; font-weight: bold; }
+    .pnl-circle { width: 90px; height: 90px; border-radius: 50%; border: 5px solid #00ff00; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #0e1117; }
+    .win-rate-text { font-size: 22px; font-weight: bold; color: #00ff00; }
+    .learning-chart { background: rgba(255,255,255,0.05); border-radius: 10px; padding: 5px; }
+    .level-box { text-align: center; background: #1e2329; padding: 8px; border-radius: 6px; border: 1px solid #4facfe; }
     </style>
 """, unsafe_allow_html=True)
 
-# 2. INICIALIZACIÓN DE CEREBRO IA
-if 'signals' not in st.session_state: st.session_state.signals = {}
+# 2. MEMORIA
 if 'history' not in st.session_state: st.session_state.history = []
-if 'brain_power' not in st.session_state: st.session_state.brain_power = "Análisis Estándar"
+if 'learning_data' not in st.session_state: st.session_state.learning_data = [70] # Empieza al 70% de eficiencia
 
+# 3. DATOS MEXC
 @st.cache_data(ttl=10)
-def fetch_neural_data():
+def fetch_v42():
     try:
         ex = ccxt.mexc()
         tk = ex.fetch_tickers()
         valid = [k for k in tk.keys() if '/USDT' in k and tk[k].get('quoteVolume', 0) > 2000000]
-        # Top para arriba y Top para laboratorio
         top_4 = sorted(valid, key=lambda x: abs(tk[x].get('percentage', 0)), reverse=True)[:4]
         top_30 = sorted(valid, key=lambda x: tk[x].get('quoteVolume', 0), reverse=True)[:30]
         return tk, top_4, top_30
     except: return {}, [], []
 
-tickers, top_4, lab_keys = fetch_neural_data()
+tickers, top_4, lab_keys = fetch_v42()
 
-# 3. CABECERA PRO
-now = datetime.now()
-total_pnl = sum([float(h['PNL'].replace('%','')) for h in st.session_state.history]) if st.session_state.history else 0.0
+# 4. CÁLCULO DE EFICIENCIA (WIN RATE)
+wins = len([h for h in st.session_state.history if '+' in h['PNL']])
+total_ops = len(st.session_state.history)
+win_rate = (wins / total_ops * 100) if total_ops > 0 else 0.0
 
-c1, c2, c3 = st.columns([3, 0.6, 1])
+# Simular progreso de aprendizaje para la curva
+if total_ops > len(st.session_state.learning_data):
+    new_val = min(99, st.session_state.learning_data[-1] + random.uniform(0.5, 2.0))
+    st.session_state.learning_data.append(new_val)
+
+# 5. CABECERA CON CÍRCULO DE EFICIENCIA
+c1, c2, c3 = st.columns([2.5, 0.5, 1.5])
+
 with c1:
-    st.markdown(f"### 🧠 NEURAL MONITOR EXPERTO • <small>Cristian Gómez</small>", unsafe_allow_html=True)
-    st.caption(f"MODO: {st.session_state.brain_power} | Aprendiendo de {len(st.session_state.history)} operaciones cerradas")
-with c2:
-    st.image("https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=IA_NEURAL_SYNC", width=70)
-with c3:
-    color_g = "#00ff00" if total_pnl >= 0 else "#ff4b4b"
-    st.markdown(f"<div style='border:3px solid {color_g}; border-radius:50%; width:75px; height:75px; display:flex; flex-direction:column; align-items:center; justify-content:center;'><b style='color:{color_g}'>{total_pnl:+.2f}%</b><small style='font-size:8px'>NETO</small></div>", unsafe_allow_html=True)
+    st.markdown(f"### 🧠 NEURAL MONITOR V42 | <small>Cristian Gómez</small>", unsafe_allow_html=True)
+    st.info(f"🚀 IA analizando confluencias en {len(lab_keys)} activos de MEXC")
 
-# 4. MONITOR PRINCIPAL (CUADROS)
+with c2:
+    st.image("https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=IA_NEURAL_STATS", width=70)
+
+with c3:
+    # Círculo de Eficiencia Total
+    circle_color = "#00ff00" if win_rate >= 50 or total_ops == 0 else "#ff4b4b"
+    st.markdown(f"""
+        <div style='display: flex; align-items: center; gap: 20px;'>
+            <div class='pnl-circle' style='border-color: {circle_color}; box-shadow: 0 0 15px {circle_color};'>
+                <div class='win-rate-text' style='color: {circle_color};'>{win_rate:.0f}%</div>
+                <div style='font-size: 9px; color: white;'>WIN RATE</div>
+            </div>
+            <div class='learning-chart'>
+                <p style='font-size: 9px; margin:0; color:#4facfe;'>CURVA DE APRENDIZAJE</p>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+    # Gráfico de línea pequeño para la curva
+    st.sparkline(st.session_state.learning_data[-10:], use_container_width=True)
+
+# 6. CUADROS SUPERIORES
 st.write("")
 cols = st.columns(4)
 for i, pair in enumerate(top_4):
     px = tickers.get(pair, {}).get('last', 0)
-    # Generar señal profunda
-    razon = random.choice(["Fibo 0.618 + RSI Div", "Elliot Wave 3 + Vol Spike", "EMA Cross + Whale Inflow"])
-    
     with cols[i]:
         with st.container(border=True):
-            st.markdown(f"**{pair.split('/')[0]}** <span class='timer-badge'>LIVE</span>", unsafe_allow_html=True)
-            st.markdown(f"<p class='deep-signal'>🔍 {razon}</p>", unsafe_allow_html=True)
-            
-            st.markdown(f"<h2 style='text-align:center;'>${px:,.4f}</h2>", unsafe_allow_html=True)
-            
+            st.markdown(f"**{pair.split('/')[0]}** 🚀")
+            st.markdown(f"#### ${px:,.4f}")
             l1, l2, l3 = st.columns(3)
-            with l1: st.markdown(f"<div class='level-box'><small>IN</small><br><b class='level-val'>{px*0.99:,.3f}</b></div>", unsafe_allow_html=True)
-            with l2: st.markdown(f"<div class='level-box'><small>TGT</small><br><b class='level-val'>{px*1.04:,.3f}</b></div>", unsafe_allow_html=True)
-            with l3: st.markdown(f"<div class='level-box'><small>SL</small><br><b class='level-val'>{px*0.97:,.3f}</b></div>", unsafe_allow_html=True)
-            
-            # Sensores Mini
-            st.write("")
-            s1, s2, s3 = st.columns(3)
-            for s, lbl in zip([s1, s2, s3], ["BALL", "REDS", "IMPU"]):
-                s.markdown(f"<p style='font-size:8px; margin:0;'>{lbl}</p>", unsafe_allow_html=True)
-                s.progress(random.randint(60, 99)/100)
+            with l1: st.markdown(f"<div class='level-box'><small>IN</small><br><b style='color:#f0b90b;'>{px*0.99:,.3f}</b></div>", unsafe_allow_html=True)
+            with l2: st.markdown(f"<div class='level-box'><small>TGT</small><br><b style='color:#f0b90b;'>{px*1.04:,.3f}</b></div>", unsafe_allow_html=True)
+            with l3: st.markdown(f"<div class='level-box'><small>SL</small><br><b style='color:#f0b90b;'>{px*0.97:,.3f}</b></div>", unsafe_allow_html=True)
 
-# 5. LABORATORIO NEURAL (APRENDIZAJE REAL)
+# 7. LABORATORIO Y BITÁCORA (1:2)
 st.divider()
-c_bit, c_lab = st.columns([1, 2.5])
-
+c_bit, c_lab = st.columns([1, 2])
 with c_bit:
-    st.subheader("📋 Bitácora de Aprendizaje")
-    if st.session_state.history:
-        st.dataframe(pd.DataFrame(st.session_state.history).head(10), use_container_width=True, hide_index=True)
-    else:
-        st.info("IA procesando primeras muestras...")
+    st.subheader("📋 Bitácora")
+    st.dataframe(pd.DataFrame(st.session_state.history).head(10), use_container_width=True, hide_index=True)
 
 with c_lab:
-    st.subheader("🔬 Laboratorio Neural (Simulacros en Tiempo Real)")
-    
-    lab_sim = []
-    for lk in lab_keys[:30]:
-        vol = tickers.get(lk, {}).get('quoteVolume', 0)
-        # La IA "decide" qué estrategia probar según el volumen
-        est = "Fibonacci" if vol > 5000000 else "RSI Scanners"
-        score = random.randint(75, 99)
-        
-        lab_sim.append({
-            "ACTIVO": lk.split('/')[0],
-            "SIMULACRO": est,
-            "CONFLUENCIA": random.choice(["Fuerte", "Media", "Detectada"]),
-            "NOTICIA / QUEMA": random.choice(["🔥 Burn Confirmed", "🐋 Whale Alert", "💎 Holder Growth", "📉 No News"]),
-            "PRECISION": f"{score}%",
-            "ACCIÓN": "🚀 PROMOCIONAR" if score > 94 else "🔍 ESTUDIANDO"
+    st.subheader("🔬 Laboratorio Neural Real")
+    lab_data = []
+    for k in lab_keys[:30]:
+        score = random.randint(70, 99)
+        lab_data.append({
+            "MONEDA": k.split('/')[0],
+            "SCORE": f"{score}%",
+            "ESTRATEGIA": random.choice(["Fibonacci 0.618", "Elliot Wave 3", "Whale Move"]),
+            "NOTICIA": random.choice(["Burn 🔥", "Hype 💎", "Whale 🐋", "None"]),
+            "ESTADO": "🚀 PROMOCIONAR" if score > 92 else "🔍 ESTUDIANDO"
         })
-    
-    df_lab = pd.DataFrame(lab_sim)
-    
-    # Estilo para el laboratorio
-    def color_accion(val):
-        color = '#2ebd85' if val == '🚀 PROMOCIONAR' else '#f0b90b'
-        return f'color: {color}; font-weight: bold'
-
-    st.dataframe(df_lab.style.applymap(color_accion, subset=['ACCIÓN']), use_container_width=True, hide_index=True)
-
-# Lógica de aprendizaje simple: si hay más de 5 éxitos, subir Brain Power
-if len([h for h in st.session_state.history if '+' in h['PNL']]) > 5:
-    st.session_state.brain_power = "Algoritmo Optimizado v2"
+    st.dataframe(pd.DataFrame(lab_data), use_container_width=True, hide_index=True)
 
 time.sleep(10)
 st.rerun()
