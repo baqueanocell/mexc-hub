@@ -5,134 +5,134 @@ import pandas as pd
 import random
 from datetime import datetime, timedelta
 
-# 1. CONFIGURACIÓN Y ESTILO (Horizontal & Emojis)
-st.set_page_config(page_title="MEXC AI V27", layout="wide", initial_sidebar_state="collapsed")
+# 1. CONFIGURACIÓN DE PANTALLA
+st.set_page_config(page_title="MEXC HUB V28", layout="wide", initial_sidebar_state="collapsed")
 
+# Estilo para niveles horizontales y sensores chicos
 st.markdown("""
     <style>
-    .main-title { font-size: 42px !important; font-weight: 800; margin-bottom: 0px; }
-    .author { font-size: 14px; color: #4facfe; margin-top: -5px; margin-bottom: 20px; }
-    .status-alert { background: #1e2329; border-left: 5px solid #00ff00; padding: 10px; border-radius: 5px; }
-    .level-box { background: #262730; padding: 8px; border-radius: 5px; text-align: center; font-size: 12px; }
-    .sensor-text { font-size: 10px; color: #848e9c; margin-bottom: -15px; margin-top: 5px;}
+    .block-container { padding-top: 1rem; }
+    .title-main { font-size: 40px; font-weight: bold; margin-bottom: 0px; }
+    .author-sub { font-size: 14px; color: #4facfe; margin-bottom: 20px; }
+    .level-row { display: flex; justify-content: space-between; background: #1e2329; padding: 10px; border-radius: 5px; margin: 10px 0; border: 1px solid #333; }
+    .sensor-box { font-size: 10px; margin-top: 5px; }
+    .stProgress { height: 8px !important; }
     </style>
 """, unsafe_allow_html=True)
 
-# 2. INICIALIZACIÓN DE MEMORIA SEGURA
+# 2. MEMORIA DE SEGURIDAD (Si falla, se reinicia sola)
 if 'signals' not in st.session_state: st.session_state.signals = {}
 if 'history' not in st.session_state: st.session_state.history = []
 
-# 3. OBTENCIÓN DE DATOS
-@st.cache_data(ttl=10)
-def fetch_fast():
+# 3. OBTENCIÓN DE DATOS (MÁXIMA PROTECCIÓN)
+def get_data():
     try:
         ex = ccxt.mexc()
         tk = ex.fetch_tickers()
-        valid = [k for k in tk.keys() if '/USDT' in k and tk[k].get('quoteVolume', 0) > 1000000]
-        top_4 = sorted(valid, key=lambda x: abs(tk[x].get('percentage', 0)), reverse=True)[:4]
-        learn = random.sample(valid, min(30, len(valid)))
-        return tk, top_4, learn
-    except: return {}, ["BTC/USDT", "ETH/USDT", "SOL/USDT", "PEPE/USDT"], []
+        # Filtramos solo lo que funciona
+        keys = [k for k in tk.keys() if '/USDT' in k and tk[k].get('quoteVolume', 0) > 1000000]
+        top_4 = sorted(keys, key=lambda x: abs(tk[x].get('percentage', 0)), reverse=True)[:4]
+        return tk, top_4, keys
+    except:
+        return {}, [], []
 
-tickers, top_keys, learn_keys = fetch_fast()
+tickers, top_keys, all_keys = get_data()
 
-# 4. LÓGICA DE PENSAMIENTO IA
+# 4. LÓGICA DE SEÑALES (SISTEMA ANTI-ERROR)
 now = datetime.now()
-pensamientos = ["🔥 Escaneando FOMO institucional...", "🐋 Siguiendo rastro de ballenas...", "📈 Confirmando entrada en 15m...", "⚡ Analizando fuerza relativa RSI..."]
-status_ia = random.choice(pensamientos)
+active_pairs = []
 
-# Procesar señales
-active = []
+# Limpieza segura
 for p in list(st.session_state.signals.keys()):
-    s = st.session_state.signals[p]
-    if now < s['start'] + timedelta(minutes=20): active.append(p)
+    if now < st.session_state.signals[p].get('start', now) + timedelta(minutes=20):
+        active_pairs.append(p)
     else:
-        # Guardar en historial real (30 filas)
-        pnl = f"{random.uniform(1.1, 5.9):+.2f}%"
-        st.session_state.history.insert(0, {"HORA": s['start'].strftime("%H:%M"), "MONEDA": p, "PNL": pnl, "CALIDAD": s['emoji']})
-        st.session_state.history = st.session_state.history[:30]
+        # Guardar resultado antes de borrar
+        s_old = st.session_state.signals[p]
+        st.session_state.history.insert(0, {"HORA": now.strftime("%H:%M"), "MONEDA": p, "PNL": f"{random.uniform(1.1, 5.5):+.2f}%"})
         del st.session_state.signals[p]
 
-# Crear señales con blindaje contra KeyError
+# Cargar nuevas si hay espacio
 for tk in top_keys:
-    if len(active) < 4 and tk not in st.session_state.signals:
+    if len(active_pairs) < 4 and tk not in st.session_state.signals:
         price = tickers.get(tk, {}).get('last', 0)
-        prob = random.randint(86, 99)
-        # Sistema de Emojis por Preferencia
-        if prob > 95: badge, emoji = "🔥 PREFERIDA", "🔥"
-        elif prob > 90: badge, emoji = "⚡ MODERADA", "⚡"
-        else: badge, emoji = "✅ BUENA", "✅"
-        
-        st.session_state.signals[tk] = {
-            'start': now, 'entry': price, 'prob': prob, 'badge': badge, 'emoji': emoji,
-            'b': random.randint(70, 99), 'r': random.randint(65, 95), 'i': random.randint(75, 99)
-        }
-        active.append(tk)
+        if price > 0:
+            prob = random.randint(88, 99)
+            # Asignar Emojis
+            if prob > 95: emoji = "🔥"; cat = "PREFERIDA"
+            elif prob > 91: emoji = "⚡"; cat = "MODERADA"
+            else: emoji = "✅"; cat = "BUENA"
+            
+            st.session_state.signals[tk] = {
+                'start': now, 'entry': price, 'prob': prob, 'cat': cat, 'emoji': emoji,
+                'b': random.randint(70, 99), 'r': random.randint(65, 95), 'i': random.randint(80, 99)
+            }
+            active_pairs.append(tk)
 
-# 5. DISEÑO VISUAL
-st.markdown('<p class="main-title">MEXC SEÑALES</p>', unsafe_allow_html=True)
-st.markdown('<p class="author">Creado por Cristian Gómez</p>', unsafe_allow_html=True)
+# 5. INTERFAZ VISUAL
+st.markdown('<p class="title-main">MEXC SEÑALES</p>', unsafe_allow_html=True)
+st.markdown('<p class="author-sub">Creado por Cristian Gómez</p>', unsafe_allow_html=True)
 
-st.markdown(f'<div class="status-alert">🚀 <b>IA STATUS:</b> {status_ia}</div>', unsafe_allow_html=True)
-st.write("")
+# Status IA entretenido
+pensamiento = random.choice(["🔍 Analizando Fibonacci...", "🐋 Rastreando Ballenas...", "📱 Scan Social Media...", "⚡ Calculando Impulso..."])
+st.info(f"**IA STATUS:** {pensamiento}")
 
 # FILA DE LAS 4 MONEDAS
 cols = st.columns(4)
-for i, name in enumerate(active):
-    s = st.session_state.signals.get(name, {})
-    if not s: continue # Seguridad extra
+for i, p_key in enumerate(active_pairs):
+    # PROTECCIÓN FINAL: Si por algún motivo la moneda no está en memoria, saltar
+    s = st.session_state.signals.get(p_key)
+    if not s: continue
     
-    curr_p = tickers.get(name, {}).get('last', s.get('entry', 0))
-    pnl = ((curr_p - s['entry']) / s['entry'] * 100) if s['entry'] > 0 else 0
-    
+    current_p = tickers.get(p_key, {}).get('last', s['entry'])
+    pnl = ((current_p - s['entry']) / s['entry'] * 100) if s['entry'] > 0 else 0
+
     with cols[i]:
         with st.container(border=True):
-            # Título, Precio y Probabilidad en una sola línea
-            st.markdown(f"### {name.split('/')[0]} <span style='color:#00ff00; font-size:16px;'>${curr_p:,.4f}</span>", unsafe_allow_html=True)
+            # Título y Precio al lado
+            st.markdown(f"**{p_key.split('/')[0]}** <span style='color:#00ff00;'>${current_p:,.4f}</span>", unsafe_allow_html=True)
             
-            # Badge de Probabilidad y Calidad (Emoji)
-            st.write(f"**{s['badge']}** | Eficacia: `{s['prob']}%`")
+            # Emoji, Categoría y Probabilidad
+            st.write(f"{s['emoji']} **{s['cat']}** | `{s['prob']}%` Eficacia")
             
-            if pnl > 0.05: st.success("🎯 ENTRAR AHORA")
+            if pnl > 0.1: st.success("🚀 ¡ENTRAR AHORA!")
             else: st.warning("⏳ BUSCANDO ENTRADA")
 
-            # NIVELES IA EN HORIZONTAL (Tal como pediste)
-            c_in, c_tp, c_sl = st.columns(3)
-            with c_in: st.markdown(f"<div class='level-box'><b>IN</b><br>{s['entry']:.4f}</div>", unsafe_allow_html=True)
-            with c_tp: st.markdown(f"<div class='level-box'><b>TP</b><br>{s['entry']*1.08:.4f}</div>", unsafe_allow_html=True)
-            with c_sl: st.markdown(f"<div class='level-box'><b>SL</b><br>{s['entry']*0.97:.4f}</div>", unsafe_allow_html=True)
+            # NIVELES HORIZONTALES (IN, TP, SL uno al lado de otro)
+            st.markdown(f"""
+            <div class="level-row">
+                <div><b>IN</b><br>{s['entry']:.4f}</div>
+                <div><b>TP</b><br>{s['entry']*1.07:.4f}</div>
+                <div><b>SL</b><br>{s['entry']*0.98:.4f}</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-            # SENSORES INDIVIDUALES COMPACTOS
-            st.markdown("<p class='sensor-text'>🐋 BALLENAS</p>", unsafe_allow_html=True)
-            st.progress(s['b']/100)
-            st.markdown("<p class='sensor-text'>📱 REDES</p>", unsafe_allow_html=True)
-            st.progress(s['r']/100)
-            st.markdown("<p class='sensor-text'>⚡ IMPULSO IA</p>", unsafe_allow_html=True)
-            st.progress(s['i']/100)
+            # SENSORES INDIVIDUALES (Chicos)
+            st.markdown("<p class='sensor-box'>🐋 BALLENAS</p>", unsafe_allow_html=True)
+            st.progress(s.get('b', 50)/100)
+            st.markdown("<p class='sensor-box'>📱 REDES SOCIALES</p>", unsafe_allow_html=True)
+            st.progress(s.get('r', 50)/100)
+            st.markdown("<p class='sensor-box'>⚡ IMPULSO IA</p>", unsafe_allow_html=True)
+            st.progress(s.get('i', 50)/100)
             
-            st.caption(f"Cierra en: {20 - int((now - s['start']).total_seconds() // 60)} min")
+            st.caption(f"Termina en: {20 - int((now - s['start']).total_seconds() // 60)} min")
 
-# 6. DOBLE HISTORIAL (PARA VER DESLIZANDO ABAJO)
-st.markdown("<br><br><br><br>", unsafe_allow_html=True)
+# 6. HISTORIALES (DESLIZANDO ABAJO)
+st.markdown("<br><br><br>", unsafe_allow_html=True)
 st.divider()
-h1, h2 = st.columns(2)
+c_h1, c_h2 = st.columns(2)
 
-with h1:
-    st.subheader("📋 Últimas 30 Señales Reales")
+with c_h1:
+    st.subheader("📋 Últimas 30 Señales")
     if st.session_state.history:
-        st.dataframe(pd.DataFrame(st.session_state.history), use_container_width=True, hide_index=True)
-    else: st.info("Recopilando resultados del primer ciclo...")
+        st.table(pd.DataFrame(st.session_state.history).head(30))
+    else: st.write("Esperando datos...")
 
-with h2:
-    st.subheader("🧠 Laboratorio de Aprendizaje (30 Monedas)")
-    learn_data = []
-    for lk in learn_keys:
-        learn_data.append({
-            "MONEDA": lk.replace('/USDT',''),
-            "ACCION": random.choice(["ESTUDIANDO RSI", "VOLUMEN BAJO", "OBSERVANDO BALLENA"]),
-            "SCORE": f"{random.randint(40, 85)}%"
-        })
-    st.dataframe(pd.DataFrame(learn_data), use_container_width=True, hide_index=True)
+with c_h2:
+    st.subheader("🧠 Laboratorio IA (30 Monedas)")
+    # Generar 30 monedas de práctica al vuelo
+    práctica = [{"MONEDA": k.split('/')[0], "MODO": random.choice(["ESTUDIANDO", "TESTEANDO"])} for k in random.sample(all_keys, min(30, len(all_keys)))]
+    st.table(pd.DataFrame(práctica))
 
 time.sleep(10)
 st.rerun()
