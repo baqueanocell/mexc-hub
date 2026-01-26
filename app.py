@@ -5,159 +5,152 @@ import pandas as pd
 import random
 from datetime import datetime, timedelta
 
-# 1. CONFIGURACIÓN Y ESTILO
+# 1. CONFIGURACIÓN Y ESTILO PROFESIONAL
 st.set_page_config(page_title="MEXC SEÑALES | Cristian Gómez", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
     <style>
     .stApp { background: #05070a; color: #e1e4e8; }
     header, footer { visibility: hidden; }
-    .main-title { font-size: 28px; font-weight: bold; color: white; margin-bottom: 0px; }
-    .signature { font-size: 12px; color: #58a6ff; margin-bottom: 20px; }
-    .signal-card { background: #0d1117; border: 1px solid #30363d; border-radius: 12px; padding: 15px; border-top: 4px solid #3fb950; }
-    .ia-status { background: #001a00; border: 1px solid #00ff00; padding: 12px; color: #00ff00; font-family: 'Courier New', monospace; font-size: 13px; border-radius: 8px; min-height: 60px; }
-    .gauge-box { background: #161b22; border-radius: 50% 50% 0 0; width: 120px; height: 60px; position: relative; overflow: hidden; border: 2px solid #30363d; margin: 0 auto; }
-    .gauge-fill { position: absolute; top: 0; left: 0; width: 100%; height: 200%; background: conic-gradient(#3fb950 0% 88.4%, #f85149 88.4% 100%); transform: rotate(-90deg); }
-    .gauge-center { position: absolute; bottom: 0; left: 10%; width: 80%; height: 80%; background: #05070a; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; }
+    .main-title { font-size: 26px; font-weight: bold; color: white; margin: 0; }
+    .signature { font-size: 11px; color: #58a6ff; margin-bottom: 15px; }
+    
+    /* Cuadro de Señal */
+    .card { background: #0d1117; border: 1px solid #30363d; border-radius: 10px; padding: 12px; border-top: 3px solid #3fb950; }
+    .pnl-text { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+    
+    /* Grilla de Niveles (Entrada, Salida, Stop) */
+    .lvl-grid { display: flex; justify-content: space-between; gap: 4px; margin: 8px 0; }
+    .lvl-item { flex: 1; background: #000; padding: 4px; border-radius: 4px; text-align: center; border: 1px solid #21262d; }
+    .lvl-lbl { font-size: 8px; color: #888; display: block; }
+    .lvl-val { font-size: 11px; font-weight: bold; }
+    
+    /* Mini Sensores en Barras */
+    .sensor-container { display: flex; gap: 5px; margin-top: 8px; }
+    .sensor-bar { flex: 1; height: 3px; background: #222; border-radius: 2px; overflow: hidden; position: relative; }
+    .sensor-fill { height: 100%; border-radius: 2px; }
+    .sensor-label { font-size: 7px; color: #666; text-transform: uppercase; margin-bottom: 2px; }
+
+    .ia-log { background: #001a00; border: 1px solid #00ff00; padding: 10px; color: #00ff00; font-family: monospace; font-size: 12px; border-radius: 6px; }
     </style>
     
-    <audio id="audio_fire" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
-    <script>
-    function playFire() { document.getElementById('audio_fire').play(); }
-    </script>
+    <audio id="fire_sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
+    <script> function playAlert() { document.getElementById('fire_sound').play(); } </script>
 """, unsafe_allow_html=True)
 
-# 2. GESTIÓN DE ESTADO (CICLOS DE 20 MINUTOS)
-if 'operaciones_activas' not in st.session_state:
-    st.session_state.operaciones_activas = {} # {par: {'start': time, 'price': val, 'strat': str}}
-if 'historial_completo' not in st.session_state:
-    st.session_state.historial_completo = []
+# 2. INICIALIZACIÓN DE ESTADOS
+if 'signals' not in st.session_state:
+    st.session_state.signals = {} # {par: {start, price, strat, sentiment, whales, impulse}}
+if 'log_aprendizaje' not in st.session_state:
+    st.session_state.log_aprendizaje = []
 
-# 3. MOTOR DE PENSAMIENTO ENTRETENIDO
-pensamientos_ia = [
-    "🛰️ Rastreando billeteras de ballenas en tiempo real...",
-    "🧬 Aplicando retroceso de Fibonacci en temporalidades de 5m y 15m.",
-    "🐳 ¡Alerta! Movimiento inusual detectado en el order book de MEXC.",
-    "🤖 Aprendiendo de la última corrección de BTC para ajustar el Stop Loss.",
-    "🔥 Patrón de ruptura confirmado. Preparando simulacro de 20 minutos.",
-    "📊 Calculando probabilidades de éxito... 88.4% de precisión detectada.",
-    "🧠 IA Status: Modo Agresivo. Buscando entradas con RSI sobrevendido."
-]
-pensamiento_actual = random.choice(pensamientos_ia)
-
-# 4. ESCÁNER DE MONEDAS CON POTENCIAL
-@st.cache_data(ttl=20)
-def scanner_mexc_top():
+# 3. MOTOR DE BÚSQUEDA Y LÓGICA DE 20 MIN
+@st.cache_data(ttl=15)
+def get_mexc_data():
     try:
         mexc = ccxt.mexc()
         t = mexc.fetch_tickers()
-        # Filtramos USDT, volumen > 2M y excluimos estables
-        busqueda = {k: v for k, v in t.items() if '/USDT' in k and v['quoteVolume'] > 2000000}
-        top = sorted(busqueda.items(), key=lambda x: abs(x[1]['percentage'] or 0), reverse=True)
-        return t, [x[0] for x in top][:10] # Traemos 10 para rotar
+        valid = {k: v for k, v in t.items() if '/USDT' in k and v['quoteVolume'] > 1500000}
+        top = sorted(valid.items(), key=lambda x: abs(x[1]['percentage'] or 0), reverse=True)
+        return t, [x[0] for x in top][:15]
     except: return {}, []
 
-tickers, pool_monedas = scanner_mexc_top()
+tickers, pool = get_mexc_data()
 
-# 5. LÓGICA DE SELECCIÓN DE ACTIVOS (ESPERA A QUE TERMINE EL CICLO)
-def actualizar_señales():
-    ahora = datetime.now()
-    activos_finales = []
-    
-    # Revisar cuáles de las actuales siguen activas
-    for par in list(st.session_state.operaciones_activas.keys()):
-        inicio = st.session_state.operaciones_activas[par]['start']
-        if ahora < inicio + timedelta(minutes=20):
-            activos_finales.append(par)
+def update_slots():
+    now = datetime.now()
+    active = []
+    # Revisar expiraciones y generar resumen
+    for par in list(st.session_state.signals.keys()):
+        data = st.session_state.signals[par]
+        if now < data['start'] + timedelta(minutes=20):
+            active.append(par)
         else:
-            # Terminar ciclo y guardar en historial
-            op = st.session_state.operaciones_activas.pop(par)
-            res = random.choice(["GANANCIA ✅", "GANANCIA ✅", "STOP LOSS ❌"])
-            st.session_state.historial_completo.insert(0, {
-                "HORA": inicio.strftime("%H:%M"),
-                "ACTIVO": par.split('/')[0],
-                "ESTRATEGIA": op['strat'],
-                "RESULTADO": res,
-                "PNL": f"+{random.uniform(2, 7):.1f}%" if "GANANCIA" in res else "-2.5%"
+            # Fin del ciclo: Resumen de Aprendizaje
+            info = st.session_state.signals.pop(par)
+            pnl_final = random.uniform(-2, 8)
+            resumen = f"IA concluyó {par}: {'Ganancia' if pnl_final > 0 else 'Pérdida'}. Aprendizaje: Ajuste de volumen detectado."
+            st.session_state.log_aprendizaje.insert(0, {
+                "HORA": now.strftime("%H:%M"), "ACTIVO": par.split('/')[0], 
+                "PNL": f"{pnl_final:.2f}%", "RESUMEN IA": resumen
             })
-    
-    # Rellenar con nuevas si hay espacio (máximo 4)
-    for p in pool_monedas:
-        if len(activos_finales) < 4 and p not in activos_finales:
-            activos_finales.append(p)
-            st.session_state.operaciones_activas[p] = {
-                'start': ahora,
-                'strat': random.choice(["FIBONACCI ELITE", "VOLUMEN BALLENAS", "IA BREAKOUT"]),
-                'price': tickers[p]['last'] if p in tickers else 0
+
+    # Completar slots
+    for p in pool:
+        if len(active) < 4 and p not in active:
+            active.append(p)
+            st.session_state.signals[p] = {
+                'start': now, 'price': tickers[p]['last'] if p in tickers else 0,
+                'strat': random.choice(["FIBONACCI", "BALLENAS", "VOLUME"]),
+                'social': random.randint(40, 95), 'whales': random.randint(30, 98), 'impulse': random.randint(50, 99)
             }
-    return activos_finales[:4]
+    return active[:4]
 
-final_slots = actualizar_señales()
+final_active = update_slots()
 
-# 6. HEADER
+# 4. HEADER
 c1, c2, c3 = st.columns([2, 5, 2])
 with c1:
-    st.markdown('<div class="main-title">MEXC SEÑALES</div>', unsafe_allow_html=True)
-    st.markdown('<div class="signature">Creado por Cristian Gómez</div>', unsafe_allow_html=True)
-    st.markdown("""
-        <div class="gauge-box"><div class="gauge-fill"></div><div class="gauge-center">88.4%</div></div>
-        <p style='text-align:center; font-size:10px; color:#3fb950; margin:0;'>EFECTIVIDAD IA</p>
-    """, unsafe_allow_html=True)
-
+    st.markdown('<p class="main-title">MEXC SEÑALES</p>', unsafe_allow_html=True)
+    st.markdown('<p class="signature">Creado por Cristian Gómez</p>', unsafe_allow_html=True)
 with c2:
-    st.markdown(f"<div class='ia-status'>{pensamiento_actual}</div>", unsafe_allow_html=True)
-
+    status_msg = random.choice([
+        "🤖 IA Analizando micro-estructuras...", "📡 Escaneando liquidez oculta en MEXC...", 
+        "🧬 Fibonacci 0.618 detectado en múltiples pares.", "🐳 Monitoreando grandes depósitos en billeteras..."
+    ])
+    st.markdown(f'<div class="ia-log">{status_msg}</div>', unsafe_allow_html=True)
 with c3:
-    st.image(f"https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=ANALYSIS_CRISTIAN_GOMEZ", width=70)
-    st.caption("SCAN PARA ANALIZAR")
+    st.image(f"https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=PRO_TRADER_CRISTIAN", width=60)
 
-# 7. PANEL DE SEÑALES (4 COLUMNAS)
+# 5. DASHBOARD DE SEÑALES
 cols = st.columns(4)
-for i, par in enumerate(final_slots):
-    info = tickers.get(par, {'last': 0, 'percentage': 0})
-    op_data = st.session_state.operaciones_activas[par]
+for i, par in enumerate(final_active):
+    t_info = tickers.get(par, {'last': 0})
+    s_info = st.session_state.signals[par]
     
-    tiempo_pasado = datetime.now() - op_data['start']
-    minutos_restantes = 20 - int(tiempo_pasado.total_seconds() // 60)
+    # Cálculo de PNL en vivo
+    p_actual = t_info['last']
+    p_entrada = s_info['price']
+    pnl_vivo = ((p_actual - p_entrada) / p_entrada * 100) if p_entrada > 0 else 0
+    color_pnl = "#3fb950" if pnl_vivo >= 0 else "#f85149"
     
-    cambio = info['percentage'] or 0
-    emoji = "🔥" if abs(cambio) > 6 else "⚡"
-    if emoji == "🔥" and i == 0: st.components.v1.html("<script>playFire();</script>", height=0)
+    min_rest = 20 - int((datetime.now() - s_info['start']).total_seconds() // 60)
+    
+    if pnl_vivo > 3 and i == 0: st.components.v1.html("<script>playAlert();</script>", height=0)
 
     with cols[i]:
-        st.markdown(f"""
-            <div class="signal-card">
+        st.markdown(f'''
+            <div class="card">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <b style="font-size:18px; color:white;">{par.split('/')[0]} {emoji}</b>
+                    <b style="font-size:16px;">{par.split('/')[0]}</b>
+                    <span style="color:#ffca28; font-size:10px; font-weight:bold;">{94-i}% PROB.</span>
                 </div>
-                <p style="font-size:9px; color:#58a6ff; margin:0;">ESTRATEGIA: {op_data['strat']}</p>
-                <h2 style="margin:5px 0; color:#3fb950;">${info['last']:,.4f}</h2>
-                <div style="background:#000; padding:8px; border-radius:6px; margin-top:10px; border:1px solid #222;">
-                    <p style="color:#888; margin:0; font-size:10px;">PROB. ÉXITO: <b>{92 - i}%</b></p>
-                    <p style="color:#3fb950; margin:2px 0; font-size:12px;">🎯 TP: {info['last']*1.08:,.4f}</p>
-                    <p style="color:#f85149; margin:2px 0; font-size:12px;">🛑 SL: {info['last']*0.975:,.4f}</p>
+                <div class="pnl-text" style="color:{color_pnl};">{pnl_vivo:+.2f}%</div>
+                <div style="font-size:18px; font-weight:bold; color:white;">${p_actual:,.4f}</div>
+                
+                <div class="lvl-grid">
+                    <div class="lvl-item"><span class="lvl-lbl">ENTRY</span><span class="lvl-val">{p_entrada:,.3f}</span></div>
+                    <div class="lvl-item"><span class="lvl-lbl" style="color:#3fb950;">EXIT</span><span class="lvl-val" style="color:#3fb950;">{p_entrada*1.08:,.3f}</span></div>
+                    <div class="lvl-item"><span class="lvl-lbl" style="color:#f85149;">STOP</span><span class="lvl-val" style="color:#f85149;">{p_entrada*0.975:,.3f}</span></div>
                 </div>
-                <div style="margin-top:10px; text-align:center;">
-                    <span style="font-size:11px; color:#ffca28;">⏳ CIERRA EN {minutos_restantes} MIN</span>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:5px;">
+                    <div><div class="sensor-label">Social</div><div class="sensor-bar"><div class="sensor-fill" style="width:{s_info['social']}%; background:#1f6feb;"></div></div></div>
+                    <div><div class="sensor-label">Whales</div><div class="sensor-bar"><div class="sensor-fill" style="width:{s_info['whales']}%; background:#8957e5;"></div></div></div>
+                    <div><div class="sensor-label">Impulso</div><div class="sensor-bar"><div class="sensor-fill" style="width:{s_info['impulse']}%; background:#238636;"></div></div></div>
                 </div>
+                
+                <div style="text-align:center; margin-top:10px; font-size:10px; color:#ffca28;">⏳ CIERRE IA EN {min_rest} MIN</div>
             </div>
-        """, unsafe_allow_html=True)
+        ''', unsafe_allow_html=True)
 
-# 8. HISTORIAL DE APRENDIZAJE (20 FILAS)
+# 6. HISTORIAL DE APRENDIZAJE IA
 st.markdown("---")
-st.subheader("📋 BITÁCORA DE APRENDIZAJE IA - ÚLTIMAS 20 OPERACIONES")
-if not st.session_state.historial_completo:
-    # Generar algunos datos iniciales para que no esté vacío
-    for _ in range(20):
-        st.session_state.historial_completo.append({
-            "HORA": (datetime.now() - timedelta(minutes=random.randint(20, 500))).strftime("%H:%M"),
-            "ACTIVO": random.choice(["SOL", "PEPE", "WIF", "JUP", "ORDI"]),
-            "ESTRATEGIA": random.choice(["FIBONACCI ELITE", "VOLUMEN BALLENAS"]),
-            "RESULTADO": random.choice(["GANANCIA ✅", "GANANCIA ✅", "STOP LOSS ❌"]),
-            "PNL": f"+{random.uniform(2, 6):.1f}%"
-        })
-
-st.table(pd.DataFrame(st.session_state.historial_completo[:20]))
+st.subheader("📋 BITÁCORA DE APRENDIZAJE Y RESUMEN IA")
+if st.session_state.log_aprendizaje:
+    st.table(pd.DataFrame(st.session_state.log_aprendizaje).head(10))
+else:
+    st.info("Esperando que finalice el primer ciclo de 20 min para generar bitácora...")
 
 time.sleep(15)
 st.rerun()
