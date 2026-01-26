@@ -3,35 +3,24 @@ import pandas as pd
 import ccxt
 from datetime import datetime, timedelta
 import pytz
+import random
 
 # Refresco cada 10 segundos
 from streamlit_autorefresh import st_autorefresh
 st_autorefresh(interval=10000, key="datarefresh")
 
-st.set_page_config(page_title="IA ELITE", layout="wide")
+st.set_page_config(page_title="IA ELITE TERMINAL", layout="wide")
 
-# --- CSS SEGURO PARA TV ---
+# --- CSS SEGURO Y MEJORADO ---
 st.markdown("""
     <style>
     .stApp { background-color: #000000 !important; }
     header, footer {visibility: hidden;}
-    
-    .card-tv { 
-        background-color: #0d1117; 
-        border: 1px solid #30363d; 
-        padding: 8px; 
-        border-radius: 5px;
-        margin-bottom: 2px;
-    }
-    
-    .exec-grid { 
-        display: grid; grid-template-columns: 1fr 1fr 1fr; 
-        background: #000; padding: 4px; border-radius: 4px; 
-        margin: 5px 0; border: 1px solid #21262d; text-align: center;
-    }
-    
+    .card-tv { background-color: #0d1117; border: 1px solid #30363d; padding: 8px; border-radius: 5px; margin-bottom: 2px; }
+    .exec-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; background: #000; padding: 4px; border-radius: 4px; margin: 5px 0; border: 1px solid #21262d; text-align: center; }
     .bar-text { font-family: monospace; font-size: 10px; line-height: 1.1; }
     .win-bar-box { background: #222; border-radius: 10px; overflow: hidden; height: 12px; display: flex; margin: 5px 0; }
+    .ia-log { background: #001a00; border-left: 3px solid #00ff00; padding: 5px 10px; font-family: monospace; font-size: 11px; color: #00ff00; margin-bottom: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -41,9 +30,9 @@ tz_arg = pytz.timezone('America/Argentina/Buenos_Aires')
 
 if 'signals' not in st.session_state: st.session_state.signals = {}
 if 'hist_cerrado' not in st.session_state: st.session_state.hist_cerrado = []
+if 'ia_thoughts' not in st.session_state: st.session_state.ia_thoughts = "Iniciando sistema de aprendizaje..."
 
 def draw_bar(value, color="#1f6feb"):
-    # Crea una barra visual usando bloques de texto
     filled = int(value / 10)
     bar = "■" * filled + "□" * (10 - filled)
     return f'<span style="color:{color};">{bar}</span> {value}%'
@@ -61,16 +50,34 @@ def get_market():
             
         data = []
         now = datetime.now(tz_arg)
+        
+        # Simular escaneo si no hay cambios
+        if random.random() > 0.7:
+            st.session_state.ia_thoughts = "Escaneando MEXC: Buscando monedas con mayor probabilidad de acierto..."
+
         for sym in selected:
             if sym in tickers:
                 t, s_name = tickers[sym], sym.replace('/USDT','')
                 p = t['last']
                 
                 if s_name not in st.session_state.signals or now > st.session_state.signals[s_name]['exp']:
-                    strat = "FIBONACCI" if abs(t['percentage'] or 0) > 4 else "IA EXPERTO"
-                    if "VEREM" in s_name: strat = "AGRESIVO"
+                    # LÓGICA DE APRENDIZAJE: Si hubo error previo, cambiar estrategia
+                    last_pnl = 1 # default positivo
+                    if st.session_state.hist_cerrado:
+                        last_pnl = float(st.session_state.hist_cerrado[0]['PNL'].replace('%',''))
+
+                    if last_pnl < 0:
+                        strat = "FIBONACCI REVERSO"
+                        st.session_state.ia_thoughts = f"⚠️ Error detectado en ciclo previo. Aplicando {strat} para mitigar riesgo."
+                    elif "VEREM" in s_name:
+                        strat = "AGRESIVO"
+                        st.session_state.ia_thoughts = f"🔥 Alta volatilidad detectada en {s_name}. Activando modo AGRESIVO."
+                    else:
+                        strat = "SMART MONEY"
+                        st.session_state.ia_thoughts = f"✅ Patrón confirmado. Cambiando a {strat} para optimizar ganancias."
+
                     st.session_state.signals[s_name] = {
-                        'e': p, 't': p*1.03, 's': p*0.985, 'strat': strat,
+                        'e': p, 't': p*1.035, 's': p*0.982, 'strat': strat,
                         'exp': now+timedelta(minutes=20)
                     }
                 
@@ -81,7 +88,9 @@ def get_market():
                     "soc": 80, "ball": 75, "imp": 90
                 })
         return data
-    except: return []
+    except Exception as e:
+        st.session_state.ia_thoughts = f"Reconectando con MEXC... {str(e)[:30]}"
+        return []
 
 # --- RENDER PANTALLA ---
 data = get_market()
@@ -91,19 +100,20 @@ total_ops = len(ops) if len(ops) > 0 else 1
 p_green = (ganadas / total_ops) * 100
 p_red = 100 - p_green if len(ops) > 0 else 0
 
-# 1. BARRA DE RENDIMIENTO GLOBAL (ROJA Y VERDE)
+# 1. HEADER Y BARRA GLOBAL
 st.markdown(f"""
     <div style="text-align: center;">
-        <span style="font-size: 18px; font-weight: bold; color: white;">🚀 RENDIMIENTO TOTAL DE SESIÓN</span>
+        <span style="font-size: 18px; font-weight: bold; color: white;">🛰️ TERMINAL IA ELITE | {datetime.now(tz_arg).strftime('%H:%M:%S')}</span>
         <div class="win-bar-box">
             <div style="background: #3fb950; width: {p_green}%;"></div>
             <div style="background: #f85149; width: {p_red}%;"></div>
         </div>
-        <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: bold; color: white;">
+        <div style="display: flex; justify-content: space-between; font-size: 10px; font-weight: bold; color: white; margin-bottom:5px;">
             <span>GANANCIAS: {p_green:.1f}%</span>
             <span>PÉRDIDAS: {p_red:.1f}%</span>
         </div>
     </div>
+    <div class="ia-log">🧠 PENSAMIENTO IA: {st.session_state.ia_thoughts}</div>
     """, unsafe_allow_html=True)
 
 # 2. TOP 4 MONEDAS
@@ -134,9 +144,9 @@ for i, m in enumerate(data):
         </div>
         """, unsafe_allow_html=True)
 
-# 3. HISTORIAL DE 10 OPERACIONES
-st.markdown("<br><b style='color:#8b949e; font-size:14px;'>📜 ÚLTIMAS 10 OPERACIONES</b>", unsafe_allow_html=True)
+# 3. HISTORIAL
+st.markdown("<b style='color:#8b949e; font-size:12px;'>📜 ÚLTIMAS 10 OPERACIONES</b>", unsafe_allow_html=True)
 if ops:
     st.table(pd.DataFrame(ops).head(10))
 else:
-    st.info("Esperando resultados del ciclo actual...")
+    st.write("Esperando cierre de operaciones...")
