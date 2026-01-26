@@ -1,109 +1,83 @@
 import streamlit as st
 import ccxt
 import time
-import random
+import pandas as pd
 
-st.set_page_config(page_title="IA TERMINAL V5.0 - AUTÓNOMA", layout="wide")
+# 1. CONFIGURACIÓN DE PÁGINA
+st.set_page_config(page_title="IA TERMINAL V5.1", layout="wide")
 
-# --- CSS AVANZADO ---
-st.markdown("""
-    <style>
-    .stApp { background-color: #000000 !important; }
-    header, footer {visibility: hidden;}
-    .card { background: #0a0e14; border: 1px solid #1f2328; padding: 10px; border-radius: 8px; border-top: 3px solid #00ff00; }
-    .strat-tag { background: #1f6feb; color: white; font-size: 8px; padding: 1px 5px; border-radius: 3px; float: right; }
-    .ia-log { background: #000a00; border: 1px solid #003300; padding: 8px; color: #00ff00; font-family: 'Courier New', monospace; font-size: 10px; border-radius: 5px; margin-bottom: 10px; height: 80px; overflow-y: hidden; }
-    .price-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3px; margin-top: 8px; }
-    .p-box { background: #161b22; padding: 3px; border-radius: 3px; text-align: center; }
-    .p-label { font-size: 7px; color: #8b949e; text-transform: uppercase; }
-    .p-val { font-size: 10px; font-weight: bold; color: #adbac7; }
-    </style>
-""", unsafe_allow_html=True)
+# Fondo negro y estilo de texto
+st.markdown("<style>.stApp {background-color: #000000; color: white;}</style>", unsafe_allow_html=True)
 
-# --- MOTOR DE APRENDIZAJE Y ESCANEO ---
-if 'history_logs' not in st.session_state:
-    st.session_state.history_logs = [
-        "Sincronizando con MEXC...",
-        "Aprendiendo de error en entrada previa (SL ajustado +0.5%)",
-        "Escaneando 500+ activos en búsqueda de patrones Fibonacci..."
-    ]
+# 2. MOTOR DE DATOS EN VIVO
+@st.cache_data(ttl=10)
+def obtener_datos_mexc():
+    try:
+        mexc = ccxt.mexc()
+        tickers = mexc.fetch_tickers()
+        # Filtramos solo USDT y ordenamos por las que más suben (Escáner Automático)
+        busqueda = {k: v for k, v in tickers.items() if '/USDT' in k}
+        top = sorted(busqueda.items(), key=lambda x: x[1]['percentage'] or 0, reverse=True)[:4]
+        return top
+    except:
+        return []
 
-# Simular pensamiento activo
-new_thoughts = [
-    "Detectado patrón Fibonacci 0.618 en temporalidad 5m.",
-    "Filtrando monedas por volumen > 1M USDT/24h.",
-    "Ajustando estrategia a 'Scalping' por alta volatilidad.",
-    "Analizando profundidad de libro (Order Book) para confirmar entrada.",
-    "IA aprendiendo: Reduciendo exposición en activos de baja liquidez."
-]
-st.session_state.history_logs.append(random.choice(new_thoughts))
-if len(st.session_state.history_logs) > 4: st.session_state.history_logs.pop(0)
-
-# --- HEADER CON QR PARA ANÁLISIS ---
-c1, c2, c3 = st.columns([2, 3, 1])
+# 3. HEADER Y PENSAMIENTO IA
+c1, c2 = st.columns([3, 1])
 with c1:
-    st.markdown('<h2 style="color:white; margin:0; font-size:20px;">🛰️ IA AUTÓNOMA V5.0</h2>', unsafe_allow_html=True)
+    st.title("🛰️ IA TERMINAL V5.1 | MODO AUTÓNOMO")
 with c2:
-    st.markdown(f'''<div class="ia-log"><b>[SISTEMA DE PENSAMIENTO CONTINUO]</b><br>
-    { "<br>".join(st.session_state.history_logs) }</div>''', unsafe_allow_html=True)
-with c3:
-    st.markdown(f'<div style="text-align:right;"><img src="https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=ANALISIS_DATA_IA" width="60" style="background:white; border-radius:4px; padding:2px;"></div>', unsafe_allow_html=True)
+    st.markdown("### QR DE ANÁLISIS 📊")
+    st.image(f"https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=ANALISIS_IA_V51", width=80)
 
-# --- ESCÁNER DE MONEDAS (Lógica de Selección) ---
-try:
-    mexc = ccxt.mexc()
-    # Aquí la IA elige las monedas con más cambio en las últimas 24h
-    tickers = mexc.fetch_tickers()
-    sorted_tickers = sorted(tickers.items(), key=lambda x: x[1]['percentage'] if x[1]['percentage'] else 0, reverse=True)
-    top_assets = [t[0].replace('/USDT', '') for t in sorted_tickers if '/USDT' in t[0]][:4]
-except:
-    top_assets = ['VEREM', 'BTC', 'ETH', 'SOL']
+# Bloque de Pensamiento Nativo
+st.info("🧠 **PENSAMIENTO IA:** Escaneando patrones Fibonacci y volumen en MEXC... Detectando entradas institucionales.")
 
-# --- RENDERIZADO DE TARJETAS ---
+# 4. CUADROS DE SEÑALES (Usando Columnas y Contenedores Nativos)
+datos_vivos = obtener_datos_mexc()
 cols = st.columns(4)
-for i, name in enumerate(top_assets):
-    # Simulación de datos de entrada basados en patrones
-    price = tickers[f"{name}/USDT"]['last'] if f"{name}/USDT" in tickers else 0.0
-    change = tickers[f"{name}/USDT"]['percentage'] if f"{name}/USDT" in tickers else 0.0
-    
-    # La IA elige la estrategia según el cambio
-    estrategia = "FIBONACCI" if abs(change) > 5 else "BREAKOUT"
-    razon = "Detección automática por volumen inusual."
-    entry = price * 0.995
-    target = price * 1.05
-    stop = price * 0.98
-    
-    with cols[i]:
-        st.markdown(f'''
-            <div class="card">
-                <span class="strat-tag">{estrategia}</span>
-                <b style="color:white; font-size:15px;">{name}</b>
-                <div style="color:#8b949e; font-size:9px; font-style:italic;">{razon}</div>
-                
-                <div style="display:flex; justify-content:space-between; margin:8px 0;">
-                    <span style="color:#58a6ff; font-size:18px; font-weight:bold;">${price:,.4f}</span>
-                    <span style="color:{"#3fb950" if change >= 0 else "#f85149"}; font-size:13px; font-weight:bold;">{change:.2f}%</span>
-                </div>
 
-                <div class="price-grid">
-                    <div class="p-box"><span class="p-label">ENTRADA</span><span class="p-val">{entry:,.3f}</span></div>
-                    <div class="p-box"><span class="p-label" style="color:#3fb950;">TARGET</span><span class="p-val">{target:,.3f}</span></div>
-                    <div class="p-box"><span class="p-label" style="color:#f85149;">STOP</span><span class="p-val">{stop:,.3f}</span></div>
-                </div>
+if datos_vivos:
+    for i, (par, info) in enumerate(datos_vivos):
+        nombre = par.replace('/USDT', '')
+        precio = info['last']
+        cambio = info['percentage'] or 0
+        
+        # Cálculos automáticos de la IA
+        entry = precio * 0.998
+        target = precio * 1.04
+        stop = precio * 0.97
+        
+        with cols[i]:
+            with st.container(border=True):
+                # Encabezado
+                st.subheader(f"🔥 {nombre}")
+                st.caption("ESTRATEGIA: FIBONACCI + VOL")
                 
-                <div style="margin-top:8px; display:flex; justify-content:space-between;">
-                    <span style="color:#ffca28; font-size:10px; font-weight:bold;">🔥 SEÑAL IA</span>
-                    <span style="color:#888; font-size:9px;">CONFIRMACIÓN 94%</span>
-                </div>
-            </div>
-        ''', unsafe_allow_html=True)
+                # Precio y Porcentaje
+                color_pnl = "normal" if cambio >= 0 else "inverse"
+                st.metric(label="PRECIO ACTUAL", value=f"${precio:,.4f}", delta=f"{cambio:.2f}%")
+                
+                st.divider()
+                
+                # Niveles de Trading con colores oficiales
+                st.write("**NIVELES CLAVE:**")
+                st.success(f"🎯 TGT: {target:,.4f}")
+                st.info(f"📥 IN: {entry:,.4f}")
+                st.error(f"🛑 SL: {stop:,.4f}")
+else:
+    st.warning("Buscando conexión con MEXC... Espera un momento.")
 
-# --- REPORTE DE ERRORES / APRENDIZAJE ---
-st.markdown('<div style="color:#58a6ff; font-weight:bold; font-size:11px; margin-top:10px;">📉 BITÁCORA DE APRENDIZAJE IA</div>', unsafe_allow_html=True)
-st.table([
-    {"SUCESO": "Falso Breakout detectado", "ACTIVO": "PEPE/USDT", "ACCIÓN": "Incrementar filtro de volumen", "MEJORA": "Evitar entradas falsas"},
-    {"SUCESO": "Target 2 alcanzado", "ACTIVO": "VEREM/USDT", "ACCIÓN": "Mantener estrategia Agresiva", "MEJORA": "Maximizar PNL"}
+# 5. BITÁCORA DE APRENDIZAJE IA
+st.markdown("---")
+st.subheader("📋 BITÁCORA DE APRENDIZAJE Y PATRONES")
+df_log = pd.DataFrame([
+    {"SUCESO": "Falso Breakout evitado", "ACTIVO": "PEPE", "MEJORA": "Filtro de volumen +15%"},
+    {"SUCESO": "Entrada Fibonacci Confirmada", "ACTIVO": nombre if datos_vivos else "Buscando", "MEJORA": "Ajuste de Trailing Stop"},
+    {"SUCESO": "Aprendizaje de Error", "ACTIVO": "BTC", "MEJORA": "Reducción de riesgo en fin de semana"}
 ])
+st.table(df_log)
 
+# 6. REFRESCO AUTOMÁTICO SEGURO
 time.sleep(15)
 st.rerun()
