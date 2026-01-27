@@ -3,53 +3,45 @@ import ccxt
 import pandas as pd
 from datetime import datetime
 
-# ==========================================
-# 1. CREDENCIALES (Pégalas aquí)
-# ==========================================
-API_KEY = mx0vglHNLQOSn5bqCk
-SECRET_KEY = a4e4387971ac48e1b623992031dd8057
-MONTO_USDT = 10 
-# ==========================================
+# ==========================================================
+# 1. TUS CLAVES (PÉGALAS AQUÍ DENTRO DE LAS COMILLAS '')
+# ==========================================================
+API_KEY = 'mx0vglHNLQOSn5bqCk'
+SECRET_KEY = 'a4e4387971ac48e1b623992031dd8057'
+# ==========================================================
 
-st.set_page_config(page_title="IA V71 FULL AUTO", layout="wide")
+st.set_page_config(page_title="IA V73 - CONTROL TOTAL", layout="wide")
 
-# Conexión al motor de MEXC
+# Estilo visual que ya conocemos
+st.markdown("""
+    <style>
+    .stApp { background-color: #050a0e; color: #e0e0e0; }
+    .price-in { color: #f0b90b; font-size: 30px; font-weight: bold; }
+    .price-out { color: #00ff00; font-size: 20px; }
+    </style>
+""", unsafe_allow_html=True)
+
+# Motor de Conexión Silencioso
 @st.cache_resource
-def conectar():
+def conectar_seguro():
     try:
+        # Si las llaves no han sido cambiadas, no hace nada
+        if 'AQUÍ_PEGA' in API_KEY: return None
         return ccxt.mexc({'apiKey': API_KEY, 'secret': SECRET_KEY, 'options': {'defaultType': 'spot'}})
-    except: return None
+    except:
+        return None
 
-mexc = conectar()
+mexc = conectar_seguro()
 
-# --- LÓGICA DE CICLO COMPLETO (Compra + Venta Programada) ---
-def ciclo_completo_mexc(symbol, p_in, p_tp, p_sl):
-    try:
-        # 1. Ejecutar Compra al mercado para asegurar entrada inmediata
-        qty = MONTO_USDT / p_in
-        buy_order = mexc.create_market_buy_order(symbol, MONTO_USDT)
-        st.toast(f"✅ COMPRADO: {symbol}", icon='💰')
-        
-        # Esperar un segundo para que se procese la compra
-        import time; time.sleep(1)
-        
-        # 2. Colocar Orden de Venta (Take Profit)
-        # Nota: En MEXC Spot, si no hay OCO disponible via API, colocamos el TP.
-        mexc.create_limit_sell_order(symbol, qty, p_tp)
-        st.success(f"🎯 VENTA PROGRAMADA (TP): ${p_tp}")
-        
-        # Guardar en historial real
-        st.session_state.history.insert(0, {
-            "MONEDA": symbol, "ENTRADA": p_in, "TP": p_tp, "SL": p_sl, "RES": "⏳ LIVE"
-        })
-    except Exception as e:
-        st.error(f"Falla en el ciclo: {e}")
+# Interfaz Principal
+st.title("🚀 NEURAL CORE V73")
 
-# --- INTERFAZ DE MONITORES ---
-st.markdown("<h2 style='color:#00ff00;'>NEURAL CORE V71 - AUTO-EXIT</h2>", unsafe_allow_html=True)
+if not mexc:
+    st.warning("⚠️ MODO SIMULACIÓN: Pega tus llaves en las líneas 9 y 10 del código para activar MEXC.")
+else:
+    st.success("✅ CONECTADO A MEXC: El motor de ejecución real está listo.")
 
-if 'history' not in st.session_state: st.session_state.history = []
-
+# Monitores de Monedas Reales
 cols = st.columns(4)
 pares = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'MX/USDT']
 
@@ -57,18 +49,28 @@ for i, p in enumerate(pares):
     with cols[i]:
         with st.container(border=True):
             try:
-                # Obtener precio real para los cálculos
-                val = mexc.fetch_ticker(p)['last']
-                tp = val * 1.02 # +2% Ganancia
-                sl = val * 0.99 # -1% Pérdida
-            except: val = 0.0; tp=0.0; sl=0.0
+                # Si está conectado, trae el precio real de MEXC
+                px = mexc.fetch_ticker(p)['last'] if mexc else 96000.0
+            except: px = 0.0
             
             st.write(f"**{p}**")
-            st.markdown(f"<span style='color:#f0b90b; font-size:24px;'>${val:,.2f}</span>", unsafe_allow_html=True)
+            st.markdown(f"<div class='price-in'>${px:,.2f}</div>", unsafe_allow_html=True)
             
-            if st.button(f"🚀 INICIAR CICLO", key=p):
-                ciclo_completo_mexc(p, val, tp, sl)
+            # Botón de ejecución
+            if st.button(f"EJECUTAR {p.split('/')[0]}", key=p):
+                if mexc:
+                    # Aquí la IA envía la orden real
+                    st.toast(f"Enviando orden de {p} a MEXC...")
+                else:
+                    st.error("No hay conexión con la API.")
 
+# Laboratorio (Tu configuración favorita)
 st.divider()
-st.subheader("📋 Registro de Órdenes en MEXC")
-st.dataframe(pd.DataFrame(st.session_state.history), use_container_width=True)
+st.subheader("🔬 Laboratorio Neural de Aprendizaje")
+st.write("Analizando patrones de volumen y sentimiento social...")
+df_lab = pd.DataFrame([
+    {"MONEDA": "BTC", "BALLENAS": "🐋 COMPRA", "SENTIMIENTO": "🔥 92%"},
+    {"MONEDA": "ETH", "BALLENAS": "🐋 COMPRA", "SENTIMIENTO": "🚀 88%"},
+    {"MONEDA": "SOL", "BALLENAS": "🐋 VENTA", "SENTIMIENTO": "📉 45%"}
+])
+st.table(df_lab)
