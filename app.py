@@ -9,8 +9,8 @@ from datetime import datetime
 
 # 1. CONFIGURACIÓN DE SEGURIDAD (API KEYS)
 # Nota: En tu tablet/laptop crea un archivo secreto o pégalas aquí temporalmente
-API_KEY = 'TU_API_KEY_AQUI'
-SECRET_KEY = 'TU_SECRET_KEY_AQUI'
+API_KEY = 'mx0vglHNLQOSn5bqCk'
+SECRET_KEY = 'a4e4387971ac48e1b623992031dd8057'
 
 # 2. CONEXIÓN AL MOTOR REAL
 mexc = ccxt.mexc({
