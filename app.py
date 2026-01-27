@@ -1,90 +1,74 @@
 import streamlit as st
 import ccxt
 import pandas as pd
-import random
-import time
-import json
 from datetime import datetime
 
-# 1. CONFIGURACIÓN DE INTERFAZ (Tu diseño blindado)
-st.set_page_config(page_title="IA V69 RECOVERY", layout="wide", initial_sidebar_state="collapsed")
+# ==========================================
+# 1. CREDENCIALES (Pégalas aquí)
+# ==========================================
+API_KEY = mx0vglHNLQOSn5bqCk
+SECRET_KEY = a4e4387971ac48e1b623992031dd8057
+MONTO_USDT = 10 
+# ==========================================
 
-st.markdown("""
-    <style>
-    .stApp { background-color: #050a0e; color: #e0e0e0; }
-    .price-in { color: #f0b90b; font-size: 32px; font-weight: 900; }
-    .price-out { color: #00ff00; font-size: 20px; font-weight: bold; }
-    .price-sl { color: #ff4b4b; font-size: 18px; font-weight: bold; }
-    .thought-box { background: #00d4ff11; border-left: 5px solid #00d4ff; padding: 12px; border-radius: 5px; margin-bottom: 15px; color: #00d4ff; font-family: monospace; }
-    </style>
-""", unsafe_allow_html=True)
+st.set_page_config(page_title="IA V71 FULL AUTO", layout="wide")
 
-# 2. CONEXIÓN SEGURA (Con paracaídas para que no explote la interfaz)
-API_KEY = 'mx0vglHNLQOSn5bqCk'
-SECRET_KEY = 'a4e4387971ac48e1b623992031dd8057'
-
-def get_mexc_connection():
+# Conexión al motor de MEXC
+@st.cache_resource
+def conectar():
     try:
         return ccxt.mexc({'apiKey': API_KEY, 'secret': SECRET_KEY, 'options': {'defaultType': 'spot'}})
-    except:
-        return None
+    except: return None
 
-mexc = get_mexc_connection()
+mexc = conectar()
 
-# 3. ESTADOS DE MEMORIA
+# --- LÓGICA DE CICLO COMPLETO (Compra + Venta Programada) ---
+def ciclo_completo_mexc(symbol, p_in, p_tp, p_sl):
+    try:
+        # 1. Ejecutar Compra al mercado para asegurar entrada inmediata
+        qty = MONTO_USDT / p_in
+        buy_order = mexc.create_market_buy_order(symbol, MONTO_USDT)
+        st.toast(f"✅ COMPRADO: {symbol}", icon='💰')
+        
+        # Esperar un segundo para que se procese la compra
+        import time; time.sleep(1)
+        
+        # 2. Colocar Orden de Venta (Take Profit)
+        # Nota: En MEXC Spot, si no hay OCO disponible via API, colocamos el TP.
+        mexc.create_limit_sell_order(symbol, qty, p_tp)
+        st.success(f"🎯 VENTA PROGRAMADA (TP): ${p_tp}")
+        
+        # Guardar en historial real
+        st.session_state.history.insert(0, {
+            "MONEDA": symbol, "ENTRADA": p_in, "TP": p_tp, "SL": p_sl, "RES": "⏳ LIVE"
+        })
+    except Exception as e:
+        st.error(f"Falla en el ciclo: {e}")
+
+# --- INTERFAZ DE MONITORES ---
+st.markdown("<h2 style='color:#00ff00;'>NEURAL CORE V71 - AUTO-EXIT</h2>", unsafe_allow_html=True)
+
 if 'history' not in st.session_state: st.session_state.history = []
-if 'modo' not in st.session_state: st.session_state.modo = "⚡ SCALPING"
 
-# 4. CABECERA Y PENSAMIENTO
-st.markdown(f"<div class='thought-box'><b>IA STATUS:</b> Sistema restaurado. Blindaje V69 activo. Esperando confirmación de API para operar en real.</div>", unsafe_allow_html=True)
-
-c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
-with c1:
-    st.markdown("<h2 style='color:#00ff00; margin:0;'>NEURAL CORE V69</h2>", unsafe_allow_html=True)
-    m_cols = st.columns(3)
-    if m_cols[0].button("⚡ SCALPING"): st.session_state.modo = "⚡ SCALPING"
-    if m_cols[1].button("📈 MEDIANO"): st.session_state.modo = "📈 MEDIANO"
-    if m_cols[2].button("💎 LARGO"): st.session_state.modo = "💎 LARGO"
-
-# 5. MONITORES DE EJECUCIÓN (Corregidos para evitar el error de tu foto)
-st.write("---")
 cols = st.columns(4)
-# Usamos nombres exactos que MEXC acepta: BTC/USDT, ETH/USDT, etc.
-monedas = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'MX/USDT'] 
+pares = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'MX/USDT']
 
-for i, pair in enumerate(monedas):
+for i, p in enumerate(pares):
     with cols[i]:
         with st.container(border=True):
-            st.markdown(f"**{pair}**", unsafe_allow_html=True)
-            px = 96000.0  # Aquí deberías conectar tu ticker real
-            st.markdown(f"<div style='text-align:center;'><span class='price-in'>${px:,.2f}</span></div>", unsafe_allow_html=True)
+            try:
+                # Obtener precio real para los cálculos
+                val = mexc.fetch_ticker(p)['last']
+                tp = val * 1.02 # +2% Ganancia
+                sl = val * 0.99 # -1% Pérdida
+            except: val = 0.0; tp=0.0; sl=0.0
             
-            # Botón con Try/Except para que no se rompa la interfaz si falla la API
-            if st.button(f"🚀 EJECUTAR {pair.split('/')[0]}", key=f"btn_{pair}"):
-                if mexc:
-                    try:
-                        # Prueba de compra mínima
-                        st.toast(f"Intentando orden en {pair}...")
-                        # Descomenta esto cuando estés listo: 
-                        # mexc.create_limit_buy_order(pair, 0.001, px)
-                    except Exception as e:
-                        st.error(f"Falla de API: {e}")
-                else:
-                    st.warning("API no conectada. Revisa tus llaves.")
+            st.write(f"**{p}**")
+            st.markdown(f"<span style='color:#f0b90b; font-size:24px;'>${val:,.2f}</span>", unsafe_allow_html=True)
+            
+            if st.button(f"🚀 INICIAR CICLO", key=p):
+                ciclo_completo_mexc(p, val, tp, sl)
 
-# 6. LABORATORIO Y HISTORIAL (Recuperados)
 st.divider()
-cl, cr = st.columns([1.8, 1.2])
-with cl:
-    st.subheader("🔬 Laboratorio Neural Pro")
-    st.write("Analizando 50 activos... (Columnas de ballenas y noticias activas)")
-    # Aquí va tu lógica de DataFrame del laboratorio anterior
-    
-with cr:
-    st.subheader(f"📋 Historial de Evolución ({len(st.session_state.history)})")
-    if st.session_state.history:
-        st.dataframe(pd.DataFrame(st.session_state.history), use_container_width=True)
-    else:
-        st.info("Esperando ejecuciones reales o simuladas...")
-
-st.sidebar.image(f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=BACKUP_V69", width=100)
+st.subheader("📋 Registro de Órdenes en MEXC")
+st.dataframe(pd.DataFrame(st.session_state.history), use_container_width=True)
