@@ -1,54 +1,46 @@
 import streamlit as st
 import pandas as pd
 
-# 1. CONFIGURACIÓN INICIAL [cite: 2026-01-27]
-st.set_page_config(page_title="NÚCLEO NEURONAL V67", layout="wide")
+# 1. CONFIGURACION BASICA [cite: 2026-01-27]
+st.set_page_config(page_title="NUCLEO V67", layout="wide")
 
-# 2. DEFINICIÓN DE COLUMNAS (Arregla el NameError)
-col_izq, col_der = st.columns([2, 1])
+# 2. COLUMNAS PRINCIPALES (Evita NameError)
+col_principal, col_control = st.columns([2, 1])
 
-# 3. COLUMNA IZQUIERDA: LABORATORIO ALPHA [cite: 2026-01-27]
-with col_izq:
-    st.title("🦁 LEÓN DE ORO V67")
-    st.header("🔬 LABORATORIO DE APRENDIZAJE")
+# 3. AREA DEL LABORATORIO (IZQUIERDA) [cite: 2026-01-27]
+with col_principal:
+    st.title("LEON DE ORO V67")
+    st.header("LABORATORIO DE APRENDIZAJE")
     
-    # Barra de progreso dinámica
-    st.subheader("🎯 Progreso de Operación (SOL/USDT)")
-    st.progress(75) 
-    st.write("Socio, estamos al **75%** del objetivo.")
+    # Barra de progreso
+    st.subheader("PROGRESO OPERACION SOL")
+    st.progress(75)
+    
+    # Pensamiento IA (Texto puro para evitar errores)
+    st.info("AI THOUGHT: Analizando ballenas. El riesgo esta protegido al nivel solicitado.") [cite: 2026-01-27]
 
-    # Métricas entretenidas
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Volumen", "$1.4B", "8.2%")
-    m2.metric("Sentimiento", "BULLISH", "92%")
-    m3.metric("Tiempo", "05:12 min", "Scalping")
+    # Tabla de historial (Ultimos 30) [cite: 2026-01-27]
+    st.write("HISTORIAL RECIENTE")
+    datos = {"Moneda": ["SOL", "BTC"], "Estado": ["ENTRY", "EXIT"], "PNL": ["+5.2%", "+2.1%"]}
+    st.table(pd.DataFrame(datos))
 
-    # AI THOUGHT (Sin errores de sintaxis)
-    st.info("🧠 AI THOUGHT: Filtrando ballenas... El riesgo del '0.5%' esta protegido.") 
-
-    st.write("---")
-    st.subheader("📜 Historial de Órdenes (Últimos 30)")
-    # El historial que pediste mantener [cite: 2026-01-27]
-    hist_data = {"Moneda": ["SOL", "BTC", "ETH"], "Estado": ["🟡 ENTRY", "🟢 EXIT", "🔴 LOSS"], "PNL": ["+4.1%", "+2.3%", "-0.5%"]}
-    st.table(pd.DataFrame(hist_data))
-
-# 4. COLUMNA DERECHA: CONTROL DEL CARTUCHO 1
-with col_der:
-    st.header("💰 CONTROL $200")
-    st.success("BALANCE MEXC: $200.00 USDT")
-    # Aquí estaba el error de la línea 38, ya corregido con comillas
-    st.warning("⚠️ RIESGO GLOBAL: '0.5%'") [cite: 2026-01-27]
+# 4. AREA DE CONTROL (DERECHA)
+with col_control:
+    st.header("CONTROL CARTUCHO 1")
+    st.success("BALANCE: 200.00 USDT")
+    
+    # Corregido: Riesgo como texto simple
+    st.warning("RIESGO DEFINIDO: 0.5 POR CIENTO") [cite: 2026-01-27]
     
     st.write("---")
-    # Precios con formato visual [cite: 2026-01-27]
-    st.subheader("🟡 ENTRY: $122.40") 
-    st.subheader("🟢 TAKE PROFIT: $128.00") 
-    st.write("🔴 STOP LOSS: $121.90") 
+    st.write("PRECIOS DE OPERACION")
+    st.write("ENTRY: 122.40 (AMARILLO)") [cite: 2026-01-27]
+    st.write("EXIT: 128.00 (VERDE)") [cite: 2026-01-27]
+    st.write("LOSS: 121.90 (ROJO)") [cite: 2026-01-27]
     
     st.write("---")
-    # QR para guardar patrones de volumen [cite: 2026-01-27]
-    st.image("https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=Pattern_V67_Leon")
-    st.caption("QR: La IA guarda patrones de volumen aquí.")
+    # Imagen de QR para aprendizaje [cite: 2026-01-27]
+    st.image("https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=LeonV67_Learning")
     
-    if st.button("💾 COPIA DE SEGURIDAD"):
-        st.success("Aprendizaje y configuración guardados.")
+    if st.button("GUARDAR CONFIGURACION"):
+        st.write("Copia de seguridad lista.") [cite: 2026-01-27]
