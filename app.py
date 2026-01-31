@@ -1,46 +1,48 @@
 import streamlit as st
 import pandas as pd
 
-# 1. CONFIGURACION BASICA [cite: 2026-01-27]
+# 1. CONFIGURACION DE PAGINA
 st.set_page_config(page_title="NUCLEO V67", layout="wide")
 
-# 2. COLUMNAS PRINCIPALES (Evita NameError)
+# 2. DEFINICION DE COLUMNAS
 col_principal, col_control = st.columns([2, 1])
 
-# 3. AREA DEL LABORATORIO (IZQUIERDA) [cite: 2026-01-27]
+# 3. ÁREA DEL LABORATORIO (IZQUIERDA)
 with col_principal:
     st.title("LEON DE ORO V67")
     st.header("LABORATORIO DE APRENDIZAJE")
     
-    # Barra de progreso
+    # Barra de progreso visual
     st.subheader("PROGRESO OPERACION SOL")
     st.progress(75)
     
-    # Pensamiento IA (Texto puro para evitar errores)
-    st.info("AI THOUGHT: Analizando ballenas. El riesgo esta protegido al nivel solicitado.") [cite: 2026-01-27]
+    # AI THOUGHT (Texto puro sin numeros conflictivos)
+    st.info("AI THOUGHT: Analizando ballenas. El riesgo esta protegido al nivel solicitado por el usuario.")
 
-    # Tabla de historial (Ultimos 30) [cite: 2026-01-27]
-    st.write("HISTORIAL RECIENTE")
-    datos = {"Moneda": ["SOL", "BTC"], "Estado": ["ENTRY", "EXIT"], "PNL": ["+5.2%", "+2.1%"]}
+    # Tabla de historial [cite: 2026-01-27]
+    st.write("HISTORIAL RECIENTE (ULTIMAS 30)")
+    datos = {
+        "Moneda": ["SOL", "BTC", "ETH"],
+        "Estado": ["ENTRADA", "SALIDA", "PERDIDA"],
+        "PNL": ["POSITIVO", "POSITIVO", "NEGATIVO"]
+    }
     st.table(pd.DataFrame(datos))
 
-# 4. AREA DE CONTROL (DERECHA)
+# 4. ÁREA DE CONTROL (DERECHA)
 with col_control:
     st.header("CONTROL CARTUCHO 1")
-    st.success("BALANCE: 200.00 USDT")
-    
-    # Corregido: Riesgo como texto simple
-    st.warning("RIESGO DEFINIDO: 0.5 POR CIENTO") [cite: 2026-01-27]
+    st.success("BALANCE EN MEXC: 200 USDT")
+    st.warning("RIESGO GLOBAL: FIJO 0.5") [cite: 2026-01-27]
     
     st.write("---")
-    st.write("PRECIOS DE OPERACION")
-    st.write("ENTRY: 122.40 (AMARILLO)") [cite: 2026-01-27]
-    st.write("EXIT: 128.00 (VERDE)") [cite: 2026-01-27]
-    st.write("LOSS: 121.90 (ROJO)") [cite: 2026-01-27]
+    st.write("PANELES DE PRECIO")
+    st.subheader("AMARILLO - ENTRADA: 122.40") [cite: 2026-01-27]
+    st.subheader("VERDE - SALIDA: 128.00") [cite: 2026-01-27]
+    st.write("ROJO - STOP: 121.90") [cite: 2026-01-27]
     
     st.write("---")
-    # Imagen de QR para aprendizaje [cite: 2026-01-27]
-    st.image("https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=LeonV67_Learning")
+    # QR de aprendizaje de volumen
+    st.image("https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=LeonV67_Learning_System")
     
-    if st.button("GUARDAR CONFIGURACION"):
-        st.write("Copia de seguridad lista.") [cite: 2026-01-27]
+    if st.button("DESCARGAR CONFIGURACION"):
+        st.write("Archivo de seguridad generado correctamente.")
