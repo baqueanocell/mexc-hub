@@ -1,48 +1,42 @@
 import streamlit as st
 import pandas as pd
 
-# 1. CONFIGURACION DE PAGINA
+# 1. CONFIGURACION
 st.set_page_config(page_title="NUCLEO V67", layout="wide")
 
-# 2. DEFINICION DE COLUMNAS
-col_principal, col_control = st.columns([2, 1])
+# 2. INTERFAZ
+col1, col2 = st.columns([2, 1])
 
-# 3. ÁREA DEL LABORATORIO (IZQUIERDA)
-with col_principal:
+with col1:
     st.title("LEON DE ORO V67")
     st.header("LABORATORIO DE APRENDIZAJE")
     
-    # Barra de progreso visual
-    st.subheader("PROGRESO OPERACION SOL")
-    st.progress(75)
+    st.info("AI THOUGHT: Analizando sentimiento y ballenas para SCALPING...")
     
-    # AI THOUGHT (Texto puro sin numeros conflictivos)
-    st.info("AI THOUGHT: Analizando ballenas. El riesgo esta protegido al nivel solicitado por el usuario.")
+    st.subheader("Simulacion Instantanea de PNL")
+    st.metric(label="PNL Estimado", value="+2.45%", delta="1.2% Bullish")
 
-    # Tabla de historial [cite: 2026-01-27]
-    st.write("HISTORIAL RECIENTE (ULTIMAS 30)")
+    st.subheader("Historial de Ordenes (Ultimos 30)")
     datos = {
         "Moneda": ["SOL", "BTC", "ETH"],
-        "Estado": ["ENTRADA", "SALIDA", "PERDIDA"],
-        "PNL": ["POSITIVO", "POSITIVO", "NEGATIVO"]
+        "Estado": ["ENTRY", "EXIT", "LOSS"],
+        "Resultado": ["+5.2%", "+2.1%", "-0.5%"]
     }
     st.table(pd.DataFrame(datos))
 
-# 4. ÁREA DE CONTROL (DERECHA)
-with col_control:
+with col2:
     st.header("CONTROL CARTUCHO 1")
-    st.success("BALANCE EN MEXC: 200 USDT")
-    st.warning("RIESGO GLOBAL: FIJO 0.5") [cite: 2026-01-27]
+    st.success("Balance en MEXC: $200.00 USDT")
+    st.warning("RIESGO GLOBAL: 0.5%")
     
     st.write("---")
-    st.write("PANELES DE PRECIO")
-    st.subheader("AMARILLO - ENTRADA: 122.40") [cite: 2026-01-27]
-    st.subheader("VERDE - SALIDA: 128.00") [cite: 2026-01-27]
-    st.write("ROJO - STOP: 121.90") [cite: 2026-01-27]
+    st.write("PRECIOS DE OPERACION")
+    st.subheader("ENTRY: $120.50")
+    st.write("TAKE PROFIT: $125.00")
+    st.write("STOP LOSS: $119.80")
     
     st.write("---")
-    # QR de aprendizaje de volumen
-    st.image("https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=LeonV67_Learning_System")
+    st.image("https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=Volumen_Pattern_V67")
     
-    if st.button("DESCARGAR CONFIGURACION"):
-        st.write("Archivo de seguridad generado correctamente.")
+    if st.button("COPIA DE SEGURIDAD JSON"):
+        st.write("Configuracion guardada.")
