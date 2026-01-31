@@ -1,42 +1,63 @@
 import streamlit as st
 import pandas as pd
+import time
 
-# 1. CONFIGURACION
-st.set_page_config(page_title="NUCLEO V67", layout="wide")
+# 1. CONFIGURACIÓN DE ÉLITE
+st.set_page_config(page_title="LEÓN DE ORO V68", layout="wide")
 
-# 2. INTERFAZ
-col1, col2 = st.columns([2, 1])
+# Estilo para los precios que pediste
+st.markdown("""
+    <style>
+    .entry-price { color: #FFFF00; font-size: 30px; font-weight: bold; }
+    .exit-price { color: #00FF00; font-size: 25px; }
+    .loss-price { color: #FF0000; font-size: 18px; }
+    </style>
+    """, unsafe_allow_html=True)
 
-with col1:
-    st.title("LEON DE ORO V67")
-    st.header("LABORATORIO DE APRENDIZAJE")
-    
-    st.info("AI THOUGHT: Analizando sentimiento y ballenas para SCALPING...")
-    
-    st.subheader("Simulacion Instantanea de PNL")
-    st.metric(label="PNL Estimado", value="+2.45%", delta="1.2% Bullish")
+# 2. CABECERA Y ESTADO GLOBAL
+st.title("🦁 NÚCLEO LEÓN DE ORO V68")
+col_info1, col_info2, col_info3 = st.columns(3)
+col_info1.metric("CARTUCHO 1 (NÚCLEO)", "$200.00", "0.5% Riesgo")
+col_info2.metric("LABORATORIO (FIERA)", "$30.00 (SIM)", "2.5% Riesgo")
+col_info3.info("AI THOUGHT: Ignorando spoofing en Verem. Buscando entrada real.")
 
-    st.subheader("Historial de Ordenes (Ultimos 30)")
-    datos = {
-        "Moneda": ["SOL", "BTC", "ETH"],
-        "Estado": ["ENTRY", "EXIT", "LOSS"],
-        "Resultado": ["+5.2%", "+2.1%", "-0.5%"]
-    }
-    st.table(pd.DataFrame(datos))
+# 3. INTERFAZ DUAL
+tab1, tab2 = st.tabs(["🛡️ MODO CONSERVADOR (Ahorro)", "🌪️ MODO FIERA (Gemas)"])
 
-with col2:
-    st.header("CONTROL CARTUCHO 1")
-    st.success("Balance en MEXC: $200.00 USDT")
-    st.warning("RIESGO GLOBAL: 0.5%")
+with tab1:
+    st.subheader("Operación Principal: SOL/USDT")
+    c1, c2 = st.columns([2, 1])
+    with c1:
+        st.write("Estado: **ACECHANDO BALLENAS**")
+        st.markdown('<p class="entry-price">ENTRY ESPERADO: $120.50</p>', unsafe_allow_html=True)
+        st.markdown('<p class="exit-price">TAKE PROFIT: $128.00</p>', unsafe_allow_html=True)
+        st.markdown('<p class="loss-price">STOP LOSS: $119.80</p>', unsafe_allow_html=True)
+    with c2:
+        st.write("PNL Tiempo Real")
+        st.progress(50) # Simulación de carga
+        st.write("Historial últimos 30 trades activos...")
+
+with tab2:
+    st.subheader("Radar de Gemas - 79% Win Rate")
+    # LOS 4 CUADROS TÉCNICOS
+    g1, g2, g3, g4 = st.columns(4)
     
-    st.write("---")
-    st.write("PRECIOS DE OPERACION")
-    st.subheader("ENTRY: $120.50")
-    st.write("TAKE PROFIT: $125.00")
-    st.write("STOP LOSS: $119.80")
-    
-    st.write("---")
-    st.image("https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=Volumen_Pattern_V67")
-    
-    if st.button("COPIA DE SEGURIDAD JSON"):
-        st.write("Configuracion guardada.")
+    with g1:
+        st.info("**MKIT**")
+        st.write("Volumen: +15%")
+        st.button("Auto-Trade MKIT")
+    with g2:
+        st.error("**VEREM**")
+        st.write("Manipulación detectada")
+        st.write("Trailing SL: Activo")
+    with g3:
+        st.success("**PINGUIN**")
+        st.write("Breakout inminente")
+        st.markdown('<p class="entry-price" style="font-size:20px;">ENTRY: $0.045</p>', unsafe_allow_html=True)
+    with g4:
+        st.warning("**NUEVA MONEDA**")
+        st.write("Escaneando...")
+
+st.divider()
+st.write("🛰️ **CONEXIÓN VPS**: Simulando enlace de baja latencia...")
+st.image("https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=V68_LEARNING_DATA")
